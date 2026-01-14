@@ -430,8 +430,9 @@
     tmp_ctl$MG_parms = tmp_MG_parms
 
     # update virgin recruitment
-    tmp_ctl$SR_parms["SR_LN(R0)","INIT"] = 6
-    tmp_ctl$SR_parms["SR_LN(R0)","PRIOR"] = 6
+    tmp_ctl$SR_parms["SR_LN(R0)","INIT"] = 15
+    tmp_ctl$SR_parms["SR_LN(R0)","PRIOR"] = 15
+    tmp_ctl$SR_parms["SR_LN(R0)","HI"] = 20
 
     # update steepness
     tmp_ctl$SR_parms["SR_BH_steep","INIT"] = 0.8
@@ -442,7 +443,7 @@
     tmp_ctl$SR_parms["SR_sigmaR","PRIOR"] = 0.6
 
     # recruitment deviation setup
-    tmp_ctl$MainRdevYrFirst = tmp_data$styr
+    tmp_ctl$MainRdevYrFirst = tmp_data$styr + 80 # start main rec devs in 1972 but could be later (1992)
     tmp_ctl$MainRdevYrLast = tmp_data$endyr - 1 # late dev for terminal year
     tmp_ctl$recdev_early_start = -40
     tmp_ctl$last_early_yr_nobias_adj = tmp_data$styr + 40 # initial values
@@ -453,6 +454,8 @@
 
     # remove init F
     tmp_ctl$init_F = NULL
+    tmp_ctl$F_Method = 3
+    tmp_ctl$F_iter = 3
 
     # catchability options; define for each survey
     tmp_ctl$Q_options = data.frame(fleet=15,link=1,link_info=0,extra_se=0,biasadj=0,float=1)
@@ -577,13 +580,13 @@
     tmp_ctl$Variance_adjustment_list$Value[which(tmp_ctl$Variance_adjustment_list$Factor%in%c(4,7))] = 1
 
     # adjust ess for comps
-    length_var_adj = 1/rep(20,15)
-    weight_var_adj = 1/rep(20,15)
-    length_var_adj[c(1,4,5,6,15)] = 1/40
-    weight_var_adj[c(1,4,5,6,15)] = 1/40
+    length_var_adj = 1/rep(20000,15)
+    weight_var_adj = 1/rep(20000,15)
+    length_var_adj[c(1,4,5,6,15)] = 1/40000
+    weight_var_adj[c(1,4,5,6,15)] = 1/40000
 
     tmp_ctl$Variance_adjustment_list$Value[which(tmp_ctl$Variance_adjustment_list$Factor%in%c(4))] = length_var_adj
-    # tmp_ctl$Variance_adjustment_list$Value[which(tmp_ctl$Variance_adjustment_list$Factor%in%c(7))] = weight_var_adj
+    tmp_ctl$Variance_adjustment_list$Value[which(tmp_ctl$Variance_adjustment_list$Factor%in%c(7))] = weight_var_adj
 
     # lambdas
     tmp_lambdas_surv= data.table(like_comp=rep(1,length(tmp_ctl$fleetnames)),fleet=1:length(tmp_ctl$fleetnames)) %>%

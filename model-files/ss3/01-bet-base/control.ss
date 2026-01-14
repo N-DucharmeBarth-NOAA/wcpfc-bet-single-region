@@ -1,6 +1,6 @@
 #C No comments
 #C file created using an r4ss function
-#C file write time: 2026-01-09  11:40:50
+#C file write time: 2026-01-14  08:03:44
 #
 0 # 0 means do not read wtatage.ss; 1 means read and usewtatage.ss and also read and use growth parameters
 1 #_N_Growth_Patterns
@@ -78,14 +78,14 @@
 0 # 0/1 to use steepness in initial equ recruitment calculation
 0 # future feature: 0/1 to make realized sigmaR a function of SR curvature
 #_LO	HI	INIT	PRIOR	PR_SD	PR_type	PHASE	env-var	use_dev	dev_mnyr	dev_mxyr	dev_PH	Block	Blk_Fxn # parm_name
-   2	  15	  6	  6	  99	0	 1	0	0	0	0	0	0	0	#_SR_LN(R0)  
+   2	  20	 15	 15	  99	0	 1	0	0	0	0	0	0	0	#_SR_LN(R0)  
  0.2	0.99	0.8	0.8	1000	6	-2	0	0	0	0	0	0	0	#_SR_BH_steep
 0.05	 1.9	0.6	0.6	1000	6	-4	0	0	0	0	0	0	0	#_SR_sigmaR  
   -4	   4	  0	  0	  99	0	-1	0	0	0	0	0	0	0	#_SR_regime  
    0	   0	  0	  0	  99	0	-1	0	0	0	0	0	0	0	#_SR_autocorr
 #_no timevary SR parameters
 1 #do_recdev:  0=none; 1=devvector (R=F(SSB)+dev); 2=deviations (R=F(SSB)+dev); 3=deviations (R=R0*dev; dev2=R-f(SSB)); 4=like 3 with sum(dev2) adding penalty
-1 # first year of main recr_devs; early devs can preceed this era
+81 # first year of main recr_devs; early devs can preceed this era
 267 # last year of main recr_devs; forecast devs start in following year
 1 #_recdev phase
 1 # (0/1) to read 13 advanced options
@@ -113,7 +113,7 @@
 -2010 # F ballpark year (neg value to disable)
 3 # F_Method:  1=Pope; 2=instan. F; 3=hybrid (hybrid is recommended)
 4 # max F or harvest rate, depends on F_Method
-5 # N iterations for tuning F in hybrid method (recommend 3 to 7)
+3 # N iterations for tuning F in hybrid method (recommend 3 to 7)
 #
 #_initial_F_parms; count = 0
 #
@@ -287,112 +287,112 @@
 #
 # Input variance adjustments factors: 
 #_Factor	Fleet	Value
-    1	 1	    0	#_1         
-    2	 1	    0	#_2         
-    3	 1	    0	#_3         
-    4	 1	0.025	#_4         
-    5	 1	    0	#_5         
-    6	 1	    0	#_6         
-    7	 1	    1	#_7         
-    1	 2	    0	#_8         
-    2	 2	    0	#_9         
-    3	 2	    0	#_10        
-    4	 2	 0.05	#_11        
-    5	 2	    0	#_12        
-    6	 2	    0	#_13        
-    7	 2	    1	#_14        
-    1	 3	    0	#_15        
-    2	 3	    0	#_16        
-    3	 3	    0	#_17        
-    4	 3	 0.05	#_18        
-    5	 3	    0	#_19        
-    6	 3	    0	#_20        
-    7	 3	    1	#_21        
-    1	 4	    0	#_22        
-    2	 4	    0	#_23        
-    3	 4	    0	#_24        
-    4	 4	0.025	#_25        
-    5	 4	    0	#_26        
-    6	 4	    0	#_27        
-    7	 4	    1	#_28        
-    1	 5	    0	#_29        
-    2	 5	    0	#_30        
-    3	 5	    0	#_31        
-    4	 5	0.025	#_32        
-    5	 5	    0	#_33        
-    6	 5	    0	#_34        
-    7	 5	    1	#_35        
-    1	 6	    0	#_36        
-    2	 6	    0	#_37        
-    3	 6	    0	#_38        
-    4	 6	0.025	#_39        
-    5	 6	    0	#_40        
-    6	 6	    0	#_41        
-    7	 6	    1	#_42        
-    1	 7	    0	#_43        
-    2	 7	    0	#_44        
-    3	 7	    0	#_45        
-    4	 7	 0.05	#_46        
-    5	 7	    0	#_47        
-    6	 7	    0	#_48        
-    7	 7	    1	#_49        
-    1	 8	    0	#_50        
-    2	 8	    0	#_51        
-    3	 8	    0	#_52        
-    4	 8	 0.05	#_53        
-    5	 8	    0	#_54        
-    6	 8	    0	#_55        
-    7	 8	    1	#_56        
-    1	 9	    0	#_57        
-    2	 9	    0	#_58        
-    3	 9	    0	#_59        
-    4	 9	 0.05	#_60        
-    5	 9	    0	#_61        
-    6	 9	    0	#_62        
-    7	 9	    1	#_63        
-    1	10	    0	#_64        
-    2	10	    0	#_65        
-    3	10	    0	#_66        
-    4	10	 0.05	#_67        
-    5	10	    0	#_68        
-    6	10	    0	#_69        
-    7	10	    1	#_70        
-    1	11	    0	#_71        
-    2	11	    0	#_72        
-    3	11	    0	#_73        
-    4	11	 0.05	#_74        
-    5	11	    0	#_75        
-    6	11	    0	#_76        
-    7	11	    1	#_77        
-    1	12	    0	#_78        
-    2	12	    0	#_79        
-    3	12	    0	#_80        
-    4	12	 0.05	#_81        
-    5	12	    0	#_82        
-    6	12	    0	#_83        
-    7	12	    1	#_84        
-    1	13	    0	#_85        
-    2	13	    0	#_86        
-    3	13	    0	#_87        
-    4	13	 0.05	#_88        
-    5	13	    0	#_89        
-    6	13	    0	#_90        
-    7	13	    1	#_91        
-    1	14	    0	#_92        
-    2	14	    0	#_93        
-    3	14	    0	#_94        
-    4	14	 0.05	#_95        
-    5	14	    0	#_96        
-    6	14	    0	#_97        
-    7	14	    1	#_98        
-    1	15	    0	#_99        
-    2	15	    0	#_100       
-    3	15	    0	#_101       
-    4	15	0.025	#_102       
-    5	15	    0	#_103       
-    6	15	    0	#_104       
-    7	15	    1	#_105       
--9999	 0	    0	#_terminator
+    1	 1	      0	#_1         
+    2	 1	      0	#_2         
+    3	 1	      0	#_3         
+    4	 1	2.5e-05	#_4         
+    5	 1	      0	#_5         
+    6	 1	      0	#_6         
+    7	 1	2.5e-05	#_7         
+    1	 2	      0	#_8         
+    2	 2	      0	#_9         
+    3	 2	      0	#_10        
+    4	 2	  5e-05	#_11        
+    5	 2	      0	#_12        
+    6	 2	      0	#_13        
+    7	 2	  5e-05	#_14        
+    1	 3	      0	#_15        
+    2	 3	      0	#_16        
+    3	 3	      0	#_17        
+    4	 3	  5e-05	#_18        
+    5	 3	      0	#_19        
+    6	 3	      0	#_20        
+    7	 3	  5e-05	#_21        
+    1	 4	      0	#_22        
+    2	 4	      0	#_23        
+    3	 4	      0	#_24        
+    4	 4	2.5e-05	#_25        
+    5	 4	      0	#_26        
+    6	 4	      0	#_27        
+    7	 4	2.5e-05	#_28        
+    1	 5	      0	#_29        
+    2	 5	      0	#_30        
+    3	 5	      0	#_31        
+    4	 5	2.5e-05	#_32        
+    5	 5	      0	#_33        
+    6	 5	      0	#_34        
+    7	 5	2.5e-05	#_35        
+    1	 6	      0	#_36        
+    2	 6	      0	#_37        
+    3	 6	      0	#_38        
+    4	 6	2.5e-05	#_39        
+    5	 6	      0	#_40        
+    6	 6	      0	#_41        
+    7	 6	2.5e-05	#_42        
+    1	 7	      0	#_43        
+    2	 7	      0	#_44        
+    3	 7	      0	#_45        
+    4	 7	  5e-05	#_46        
+    5	 7	      0	#_47        
+    6	 7	      0	#_48        
+    7	 7	  5e-05	#_49        
+    1	 8	      0	#_50        
+    2	 8	      0	#_51        
+    3	 8	      0	#_52        
+    4	 8	  5e-05	#_53        
+    5	 8	      0	#_54        
+    6	 8	      0	#_55        
+    7	 8	  5e-05	#_56        
+    1	 9	      0	#_57        
+    2	 9	      0	#_58        
+    3	 9	      0	#_59        
+    4	 9	  5e-05	#_60        
+    5	 9	      0	#_61        
+    6	 9	      0	#_62        
+    7	 9	  5e-05	#_63        
+    1	10	      0	#_64        
+    2	10	      0	#_65        
+    3	10	      0	#_66        
+    4	10	  5e-05	#_67        
+    5	10	      0	#_68        
+    6	10	      0	#_69        
+    7	10	  5e-05	#_70        
+    1	11	      0	#_71        
+    2	11	      0	#_72        
+    3	11	      0	#_73        
+    4	11	  5e-05	#_74        
+    5	11	      0	#_75        
+    6	11	      0	#_76        
+    7	11	  5e-05	#_77        
+    1	12	      0	#_78        
+    2	12	      0	#_79        
+    3	12	      0	#_80        
+    4	12	  5e-05	#_81        
+    5	12	      0	#_82        
+    6	12	      0	#_83        
+    7	12	  5e-05	#_84        
+    1	13	      0	#_85        
+    2	13	      0	#_86        
+    3	13	      0	#_87        
+    4	13	  5e-05	#_88        
+    5	13	      0	#_89        
+    6	13	      0	#_90        
+    7	13	  5e-05	#_91        
+    1	14	      0	#_92        
+    2	14	      0	#_93        
+    3	14	      0	#_94        
+    4	14	  5e-05	#_95        
+    5	14	      0	#_96        
+    6	14	      0	#_97        
+    7	14	  5e-05	#_98        
+    1	15	      0	#_99        
+    2	15	      0	#_100       
+    3	15	      0	#_101       
+    4	15	2.5e-05	#_102       
+    5	15	      0	#_103       
+    6	15	      0	#_104       
+    7	15	2.5e-05	#_105       
+-9999	 0	      0	#_terminator
 #
 1 #_maxlambdaphase
 1 #_sd_offset; must be 1 if any growthCV, sigmaR, or survey extraSD is an estimated parameter
