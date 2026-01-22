@@ -144,6 +144,33 @@
     }
 
 #_____________________________________________________________________________________________________________________________
+# setup lambdas (likelihood weights) for all data types
+    tmp_lambdas_surv = data.table(like_comp=rep(1,length(tmp_ctl$fleetnames)),fleet=1:length(tmp_ctl$fleetnames)) %>%
+                       .[,phase:=1] %>%
+                       .[,value:=0] %>%
+                       .[,sizefreq_method:=0] %>%
+                       .[fleet %in% c(15),value:=1]
+    
+    # Get unique fleets from length composition data
+    lencomp_fleets = unique(tmp_data$lencomp$fleet)
+    tmp_lambdas_lf = data.table(like_comp=rep(4,length(tmp_ctl$fleetnames)),fleet=1:length(tmp_ctl$fleetnames)) %>%
+                     .[,phase:=1] %>%
+                     .[,value:=0] %>%
+                     .[,sizefreq_method:=0] %>%
+                     .[fleet %in% lencomp_fleets,value:=1]
+    
+    # Get unique fleets from generalized size comp (weight) data
+    sizefreq_fleets = unique(tmp_data$sizefreq_data_list[[1]]$fleet)
+    tmp_lambdas_gs = data.table(like_comp=rep(6,length(sizefreq_fleets)),fleet=sizefreq_fleets) %>%
+                     .[,phase:=1] %>%
+                     .[,value:=1] %>%
+                     .[,sizefreq_method:=1]
+    
+    # Combine all lambda components
+    tmp_ctl$lambdas = as.data.frame(rbind(tmp_lambdas_surv,tmp_lambdas_lf,tmp_lambdas_gs))
+    tmp_ctl$N_lambdas = nrow(tmp_ctl$lambdas)
+
+#_____________________________________________________________________________________________________________________________
 # create new directory for fixed stock synthesis model
     dir_fixed_stock_synthesis = file.path(dir_model,"ss3","02-fix-sel")
     dir.create(dir_fixed_stock_synthesis,recursive=TRUE)

@@ -1,6 +1,6 @@
 #C No comments
 #C file created using an r4ss function
-#C file write time: 2026-01-22  12:15:49
+#C file write time: 2026-01-22  12:31:00
 #
 0 # 0 means do not read wtatage.ss; 1 means read and usewtatage.ss and also read and use growth parameters
 1 #_N_Growth_Patterns
@@ -396,39 +396,47 @@
 #
 1 #_maxlambdaphase
 1 #_sd_offset; must be 1 if any growthCV, sigmaR, or survey extraSD is an estimated parameter
-# read 30 changes to default Lambdas (default value is 1.0)
+# read 38 changes to default Lambdas (default value is 1.0)
 #_like_comp	fleet	phase	value	sizefreq_method
-    1	 1	1	0	0	#_Surv_F01_LL.NORTH_Phz1                       
-    1	 2	1	0	0	#_Surv_F02_LL.US_Phz1                          
-    1	 3	1	0	0	#_Surv_F03_LL.OFFSHORE_Phz1                    
-    1	 4	1	0	0	#_Surv_F04_LL.EQUAT_Phz1                       
-    1	 5	1	0	0	#_Surv_F05_LL.WEST_Phz1                        
-    1	 6	1	0	0	#_Surv_F06_LL.SOUTH_Phz1                       
-    1	 7	1	0	0	#_Surv_F07_LL.AU_Phz1                          
-    1	 8	1	0	0	#_Surv_F08_PS.ASS_Phz1                         
-    1	 9	1	0	0	#_Surv_F09_PS.UNA_Phz1                         
-    1	10	1	0	0	#_Surv_F10_DOM.MISC_Phz1                       
-    1	11	1	0	0	#_Surv_F11_DOM.HL_Phz1                         
-    1	12	1	0	0	#_Surv_F12_PS.JP.NORTH_Phz1                    
-    1	13	1	0	0	#_Surv_F13_PL.JP.NORTH_Phz1                    
-    1	14	1	0	0	#_Surv_F14_PL.EQUAT_Phz1                       
-    1	15	1	1	0	#_Surv_S01_INDEX_Phz1                          
-    4	 1	1	0	0	#_length_F01_LL.NORTH_sizefreq_method_0_Phz1   
-    4	 2	1	0	0	#_length_F02_LL.US_sizefreq_method_0_Phz1      
-    4	 3	1	0	0	#_length_F03_LL.OFFSHORE_sizefreq_method_0_Phz1
-    4	 4	1	0	0	#_length_F04_LL.EQUAT_sizefreq_method_0_Phz1   
-    4	 5	1	0	0	#_length_F05_LL.WEST_sizefreq_method_0_Phz1    
-    4	 6	1	0	0	#_length_F06_LL.SOUTH_sizefreq_method_0_Phz1   
-    4	 7	1	0	0	#_length_F07_LL.AU_sizefreq_method_0_Phz1      
-    4	 8	1	1	0	#_length_F08_PS.ASS_sizefreq_method_0_Phz1     
-    4	 9	1	1	0	#_length_F09_PS.UNA_sizefreq_method_0_Phz1     
-    4	10	1	1	0	#_length_F10_DOM.MISC_sizefreq_method_0_Phz1   
-    4	11	1	1	0	#_length_F11_DOM.HL_sizefreq_method_0_Phz1     
-    4	12	1	1	0	#_length_F12_PS.JP.NORTH_sizefreq_method_0_Phz1
-    4	13	1	1	0	#_length_F13_PL.JP.NORTH_sizefreq_method_0_Phz1
-    4	14	1	1	0	#_length_F14_PL.EQUAT_sizefreq_method_0_Phz1   
-    4	15	1	0	0	#_length_S01_INDEX_sizefreq_method_0_Phz1      
--9999	 0	0	0	0	#_terminator                                   
+    1	 1	1	0	0	#_1         
+    1	 2	1	0	0	#_2         
+    1	 3	1	0	0	#_3         
+    1	 4	1	0	0	#_4         
+    1	 5	1	0	0	#_5         
+    1	 6	1	0	0	#_6         
+    1	 7	1	0	0	#_7         
+    1	 8	1	0	0	#_8         
+    1	 9	1	0	0	#_9         
+    1	10	1	0	0	#_10        
+    1	11	1	0	0	#_11        
+    1	12	1	0	0	#_12        
+    1	13	1	0	0	#_13        
+    1	14	1	0	0	#_14        
+    1	15	1	1	0	#_15        
+    4	 1	1	0	0	#_16        
+    4	 2	1	0	0	#_17        
+    4	 3	1	0	0	#_18        
+    4	 4	1	0	0	#_19        
+    4	 5	1	0	0	#_20        
+    4	 6	1	0	0	#_21        
+    4	 7	1	0	0	#_22        
+    4	 8	1	1	0	#_23        
+    4	 9	1	1	0	#_24        
+    4	10	1	1	0	#_25        
+    4	11	1	1	0	#_26        
+    4	12	1	1	0	#_27        
+    4	13	1	1	0	#_28        
+    4	14	1	1	0	#_29        
+    4	15	1	0	0	#_30        
+    6	 5	1	1	1	#_31        
+    6	15	1	1	1	#_32        
+    6	 1	1	1	1	#_33        
+    6	 4	1	1	1	#_34        
+    6	 6	1	1	1	#_35        
+    6	 3	1	1	1	#_36        
+    6	 2	1	1	1	#_37        
+    6	 7	1	1	1	#_38        
+-9999	 0	0	0	0	#_terminator
 #
 2 # 0/1 read specs for more stddev reporting
 0 0 0 0 # selex_fleet, 1=len/2=age/3=both, year, N selex bins
