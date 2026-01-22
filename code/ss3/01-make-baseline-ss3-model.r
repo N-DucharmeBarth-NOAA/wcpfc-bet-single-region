@@ -630,3 +630,5 @@
 # run new version of stock synthesis
     file.copy(from=paste0(proj_dir,"/executables/stock-synthesis/3.30.24.1/ss3_win.exe"),to=dir_bet_stock_synthesis_base)
     run(dir=dir_bet_stock_synthesis_base,exe="ss3_win.exe",show_in_console = TRUE,skipfinished=FALSE)
+
+    run(dir=dir_bet_stock_synthesis_base,exe="ss3_win.exe",extras="-maxfn 0 -phase 9999",show_in_console=TRUE,skipfinished =FALSE,verbose=FALSE)

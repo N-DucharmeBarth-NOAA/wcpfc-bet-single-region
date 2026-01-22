@@ -5,7 +5,7 @@
 #_User_info_available_at:_https://nmfs-ost.github.io/ss3-website/
 #_Source_code_at:_https://github.com/nmfs-ost/ss3-source-code
 
-#_Start_time: Thu Jan 15 19:42:23 2026
+#_Start_time: Thu Jan 22 07:42:16 2026
 #_echo_input_data
 #C No comments
 #C file created using an r4ss function
@@ -4751,16 +4751,16 @@
 # 0 0 32 32 0 0 0 #_fleet:3_F03_LL.OFFSHORE
 # 0 0 0 0 0 0 0 #_fleet:4_F04_LL.EQUAT
 # 0 0 -1 -1 0 0 0 #_fleet:5_F05_LL.WEST
-# 0 0 0 0 0 0 0 #_fleet:6_F06_LL.SOUTH
+# 0 0 1073208098 0 0 0 0 #_fleet:6_F06_LL.SOUTH
 # 0 0 48 48 0 0 0 #_fleet:7_F07_LL.AU
-# 0 0 892745017 909324288 0 0 0 #_fleet:8_F08_PS.ASS
-# 0 0 0 50 0 0 0 #_fleet:9_F09_PS.UNA
-# 0 0 0 0 0 0 0 #_fleet:10_F10_DOM.MISC
+# 0 0 942748984 892810752 0 0 0 #_fleet:8_F08_PS.ASS
+# 0 0 54 14135 0 0 0 #_fleet:9_F09_PS.UNA
+# 0 0 1078018048 1080201887 0 0 0 #_fleet:10_F10_DOM.MISC
 # 0 0 0 0 0 0 0 #_fleet:11_F11_DOM.HL
-# 0 0 0 0 0 0 0 #_fleet:12_F12_PS.JP.NORTH
-# 0 0 0 0 0 0 0 #_fleet:13_F13_PL.JP.NORTH
-# 0 0 0 0 0 0 0 #_fleet:14_F14_PL.EQUAT
-# 0 0 0 0 0 0 0 #_fleet:15_S01_INDEX
+# 0 0 1071644672 0 0 0 0 #_fleet:12_F12_PS.JP.NORTH
+# 0 0 858993459 1992864825 0 0 0 #_fleet:13_F13_PL.JP.NORTH
+# 0 0 1078850355 1075961790 0 0 0 #_fleet:14_F14_PL.EQUAT
+# 0 0 1717986918 -1374389535 0 0 0 #_fleet:15_S01_INDEX
 # 0 #_Lbin_method_for_Age_Data: 1=poplenbins; 2=datalenbins; 3=lengths
 # sex codes:  0=combined; 1=use female only; 2=use male only; 3=use both as joint sex*length distribution
 # partition codes:  (0=combined; 1=discard; 2=retained
