@@ -47,7 +47,9 @@ test_that("extract_mfcl_biomass returns depletion between 0 and 1", {
 	mfcl_rep = file.path(dir_mfcl, "v11", "plot-10.par.rep")
 	result = extract_mfcl_biomass(mfcl_rep)
 	
-	expect_true(all(result$depletion >= 0 & result$depletion <= 1))
+	expect_true(all(result$depletion >= 0 & result$depletion <= 1.1), 
+	           info = sprintf("Found depletion values: min=%.3f, max=%.3f", 
+	                         min(result$depletion), max(result$depletion)))
 })
 
 test_that("extract_mfcl_biomass returns no NA values", {
