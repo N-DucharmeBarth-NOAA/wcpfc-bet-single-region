@@ -1,6 +1,9 @@
 # Extract spawning biomass and depletion from SS3 Report.sso
 # Returns data.table with columns: model, year, ssb, ssb_se, depletion, depletion_se
 
+# library(r4ss)
+# library(data.table)
+# library(this.path)
 # model_dir = file.path(this.path::this.proj(), "model-files", "ss3", "01-bet-base")
 # result = extract_ss3_biomass(model_dir)
 # head(result)

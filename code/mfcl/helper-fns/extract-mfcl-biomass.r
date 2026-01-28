@@ -1,6 +1,9 @@
 # Extract spawning biomass and depletion from MFCL Report (.rep) file
 # Returns data.table with columns: model, year, ssb, ssb_se, depletion, depletion_se
 
+# library(FLR4MFCL)
+# library(data.table)
+# library(this.path)
 # rep_file = file.path(this.path::this.proj(), "model-files", "mfcl", "v11", "plot-10.par.rep")
 # result = extract_mfcl_biomass(rep_file, model_name = "MFCL-v11")
 # head(result)
