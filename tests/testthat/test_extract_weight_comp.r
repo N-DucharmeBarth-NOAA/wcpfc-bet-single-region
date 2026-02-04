@@ -246,3 +246,57 @@ test_that("CSV files are created in correct locations", {
   csv_data = fread(csv_file)
   expect_equal(nrow(csv_data), nrow(wt_comp))
 })
+
+test_that("SS3 save_csv = FALSE does not create file", {
+  ss3_model_dir = file.path(dir_ss3, "01-bet-base")
+  skip_if_not(file.exists(ss3_model_dir), "SS3 model directory not found")
+  
+  # Remove existing file if present
+  csv_file = file.path(ss3_model_dir, "comp_size.csv")
+  if(file.exists(csv_file)) file.remove(csv_file)
+  
+  # Extract without saving CSV
+  wt_comp = extract_ss3_weight_comp(ss3_model_dir, "01-bet-base", 
+                                    save_csv = FALSE, verbose = FALSE)
+  
+  # Verify file was not created
+  expect_false(file.exists(csv_file))
+  
+  # But data.table should still be returned
+  expect_s3_class(wt_comp, "data.table")
+})
+
+test_that("MFCL save_csv = FALSE does not create file", {
+  mfcl_dir = file.path(dir_mfcl, "v11")
+  skip_if_not(file.exists(mfcl_dir), "MFCL directory not found")
+  
+  # Test with non-existent file - should not error when save_csv = FALSE
+  result = extract_mfcl_weight_comp(
+    file.path(mfcl_dir, "nonexistent.fit"),
+    file.path(mfcl_dir, "bet.frq"),
+    "test",
+    save_csv = FALSE,
+    verbose = FALSE
+  )
+  
+  # Should return empty data.table without error
+  expect_s3_class(result, "data.table")
+  expect_equal(nrow(result), 0)
+})
+
+test_that("MFCL requires output_dir when save_csv = TRUE", {
+  mfcl_dir = file.path(dir_mfcl, "v11")
+  skip_if_not(file.exists(mfcl_dir), "MFCL directory not found")
+  
+  # Should error when output_dir is missing and save_csv = TRUE
+  expect_error(
+    extract_mfcl_weight_comp(
+      file.path(mfcl_dir, "weight.fit"),
+      file.path(mfcl_dir, "bet.frq"),
+      "test",
+      save_csv = TRUE,
+      verbose = FALSE
+    ),
+    "output_dir must be provided"
+  )
+})

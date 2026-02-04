@@ -9,7 +9,8 @@
 #' @param fishery_names Character vector. Optional fleet names
 #' @param harmonize_bins Logical. Rebin to target structure? Default FALSE
 #' @param target_bins Numeric vector. Target bin edges. Only used if harmonize_bins = TRUE
-#' @param output_dir Character. Directory for output CSV
+#' @param output_dir Character. Directory for output CSV (required if save_csv = TRUE)
+#' @param save_csv Logical. Save output as comp_size.csv? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
@@ -19,11 +20,16 @@
 #' Reads MFCL weight.fit file using either FLR4MFCL::read.MFCLWgtFit() or
 #' the parse_fit_file() function. Aggregates across time and optionally rebins.
 #' 
+#' By default, the function saves the output as comp_size.csv in the output directory
+#' and returns the data.table. Set save_csv = FALSE to only return the data.table
+#' without saving to file.
+#' 
 #' Note: Not all MFCL models have weight composition data. Function handles
 #' gracefully when weight.fit file doesn't exist.
 #'
 #' @examples
 #' \dontrun{
+#'   # With CSV save (default)
 #'   wt_comp = extract_mfcl_weight_comp(
 #'     weight_fit_file = "model-files/mfcl/v11/weight.fit",
 #'     frq_file = "model-files/mfcl/v11/bet.frq",
@@ -32,6 +38,14 @@
 #'     harmonize_bins = TRUE,
 #'     target_bins = seq(0, 140, by = 2)
 #'   )
+#'   
+#'   # Without CSV save
+#'   wt_comp = extract_mfcl_weight_comp(
+#'     weight_fit_file = "model-files/mfcl/v11/weight.fit",
+#'     frq_file = "model-files/mfcl/v11/bet.frq",
+#'     model_id = "mfcl-v11",
+#'     save_csv = FALSE
+#'   )
 #' }
 #'
 #' @export
@@ -39,11 +53,17 @@ extract_mfcl_weight_comp = function(weight_fit_file, frq_file, model_id,
                                     fishery_names = NULL,
                                     harmonize_bins = FALSE,
                                     target_bins = NULL,
-                                    output_dir,
+                                    output_dir = NULL,
+                                    save_csv = TRUE,
                                     verbose = TRUE) {
   
   require(data.table)
   require(magrittr)
+  
+  # Check if output_dir is provided when save_csv is TRUE
+  if (save_csv && is.null(output_dir)) {
+    stop("output_dir must be provided when save_csv = TRUE")
+  }
   
   # Check if weight.fit file exists
   if (!file.exists(weight_fit_file)) {
@@ -227,9 +247,11 @@ extract_mfcl_weight_comp = function(weight_fit_file, frq_file, model_id,
   wt_agg = wt_agg[,.(id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
                      Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj)]
   
-  # Write CSV
-  if(verbose) cat("Writing comp_size.csv...\n")
-  fwrite(wt_agg, file.path(output_dir, "comp_size.csv"))
+  # Write CSV if requested
+  if(save_csv) {
+    if(verbose) cat("Writing comp_size.csv...\n")
+    fwrite(wt_agg, file.path(output_dir, "comp_size.csv"))
+  }
   
   if(verbose) cat("Done!\n")
   

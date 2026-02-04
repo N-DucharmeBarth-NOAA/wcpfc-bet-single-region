@@ -9,6 +9,7 @@
 #' @param harmonize_bins Logical. Rebin to target structure? Default FALSE
 #' @param target_bins Numeric vector. Target bin edges (lower bounds + upper edge).
 #'   Only used if harmonize_bins = TRUE
+#' @param save_csv Logical. Save output as comp_size.csv? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
@@ -18,22 +19,27 @@
 #' Extracts weight composition data from SS3 sizedbase component (generalized
 #' size composition) and aggregates across all years. If harmonize_bins = TRUE,
 #' applies rebin_composition() to convert data to target bin structure.
+#' 
+#' By default, the function saves the output as comp_size.csv in the model directory
+#' and returns the data.table. Set save_csv = FALSE to only return the data.table
+#' without saving to file.
 #'
 #' @examples
 #' \dontrun{
-#'   # Without bin harmonization
+#'   # Without bin harmonization, save CSV
 #'   wt_comp = extract_ss3_weight_comp(
 #'     model_dir = "model-files/ss3/01-bet-base",
 #'     model_id = "01-bet-base"
 #'   )
 #'   
-#'   # With bin harmonization to 2kg bins
+#'   # With bin harmonization to 2kg bins, don't save CSV
 #'   target_bins = seq(0, 140, by = 2)
 #'   wt_comp = extract_ss3_weight_comp(
 #'     model_dir = "model-files/ss3/01-bet-base",
 #'     model_id = "01-bet-base",
 #'     harmonize_bins = TRUE,
-#'     target_bins = target_bins
+#'     target_bins = target_bins,
+#'     save_csv = FALSE
 #'   )
 #' }
 #'
@@ -41,6 +47,7 @@
 extract_ss3_weight_comp = function(model_dir, model_id,
                                    harmonize_bins = FALSE,
                                    target_bins = NULL,
+                                   save_csv = TRUE,
                                    verbose = TRUE) {
   
   require(r4ss)
@@ -145,9 +152,11 @@ extract_ss3_weight_comp = function(model_dir, model_id,
   wt_agg = wt_agg[,.(id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
                      Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj)]
   
-  # Write CSV
-  if(verbose) cat("Writing comp_size.csv...\n")
-  fwrite(wt_agg, file.path(model_dir, "comp_size.csv"))
+  # Write CSV if requested
+  if(save_csv) {
+    if(verbose) cat("Writing comp_size.csv...\n")
+    fwrite(wt_agg, file.path(model_dir, "comp_size.csv"))
+  }
   
   if(verbose) cat("Done!\n")
   
