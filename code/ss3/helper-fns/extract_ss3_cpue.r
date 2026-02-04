@@ -1,11 +1,12 @@
 #' Extract CPUE Index Fit from SS3 Model
 #'
 #' Extracts observed and predicted CPUE values with standard errors from
-#' Stock Synthesis output and writes to standardized CSV format compatible
-#' with plot_index_comparison().
+#' Stock Synthesis output and optionally writes to standardized CSV format 
+#' compatible with plot_index_comparison().
 #'
 #' @param model_dir Character. Path to SS3 model directory containing Report.sso
 #' @param model_id Character. Model identifier for output
+#' @param save_csv Logical. Save output as CSV file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Time, Obs, Exp, SE, Dev, Use
@@ -17,20 +18,25 @@
 #'
 #' @examples
 #' \dontrun{
+#'   # Extract and save CSV
 #'   cpue_dt = extract_ss3_cpue(
 #'     model_dir = "model-files/ss3/01-bet-base",
 #'     model_id = "01-bet-base"
 #'   )
 #'   
+#'   # Extract without saving CSV
+#'   cpue_dt = extract_ss3_cpue(
+#'     model_dir = "model-files/ss3/01-bet-base",
+#'     model_id = "01-bet-base",
+#'     save_csv = FALSE
+#'   )
+#'   
 #'   # Check output
 #'   head(cpue_dt)
-#'   
-#'   # Verify CSV written
-#'   file.exists("model-files/ss3/01-bet-base/cpue.csv")
 #' }
 #'
 #' @export
-extract_ss3_cpue = function(model_dir, model_id, verbose = TRUE) {
+extract_ss3_cpue = function(model_dir, model_id, save_csv = TRUE, verbose = TRUE) {
   # Validate inputs
   if(!file.exists(file.path(model_dir, "Report.sso"))) {
     stop(sprintf("Report.sso not found in %s", model_dir))
@@ -70,12 +76,14 @@ extract_ss3_cpue = function(model_dir, model_id, verbose = TRUE) {
                     length(unique(cpue_dt$Fleet))))
   }
   
-  # 6. Write CSV
-  output_file = file.path(model_dir, "cpue.csv")
-  data.table::fwrite(cpue_dt, output_file)
-  
-  if(verbose) {
-    message(sprintf("CPUE data written to %s", output_file))
+  # 6. Write CSV (optional)
+  if(save_csv) {
+    output_file = file.path(model_dir, "cpue.csv")
+    data.table::fwrite(cpue_dt, output_file)
+    
+    if(verbose) {
+      message(sprintf("CPUE data written to %s", output_file))
+    }
   }
   
   # 7. Return data.table

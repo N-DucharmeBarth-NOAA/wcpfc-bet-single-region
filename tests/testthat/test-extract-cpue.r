@@ -18,7 +18,7 @@ sapply(file.path(dir_helper_fns, list.files(dir_helper_fns)), source)
 
 context("extract_ss3_cpue")
 
-# Test SS3 extractor
+# Test SS3 extractor with CSV saving (default behavior)
 ss3_dir = file.path(dir_ss3, "01-bet-base")
 cpue_ss3 = extract_ss3_cpue(ss3_dir, "01-bet-base", verbose = FALSE)
 
@@ -61,8 +61,21 @@ test_that("SS3 CPUE extractor Use flag is binary", {
               info = paste("Found Use values not in {0, 1}"))
 })
 
-test_that("SS3 CPUE extractor writes CSV file", {
+test_that("SS3 CPUE extractor writes CSV file by default", {
   expect_true(file.exists(file.path(ss3_dir, "cpue.csv")))
+})
+
+test_that("SS3 CPUE extractor can skip CSV saving", {
+  # Remove CSV if it exists
+  csv_path = file.path(ss3_dir, "cpue_test.csv")
+  if(file.exists(csv_path)) file.remove(csv_path)
+  
+  # Extract without saving CSV
+  cpue_no_csv = extract_ss3_cpue(ss3_dir, "01-bet-base", save_csv = FALSE, verbose = FALSE)
+  
+  # Verify data.table is still returned
+  expect_s3_class(cpue_no_csv, "data.table")
+  expect_equal(nrow(cpue_no_csv), nrow(cpue_ss3))
 })
 
 test_that("SS3 CPUE extractor model ID matches", {
@@ -116,8 +129,25 @@ test_that("MFCL CPUE extractor Use flag is binary", {
               info = paste("Found Use values not in {0, 1}"))
 })
 
-test_that("MFCL CPUE extractor writes CSV file", {
+test_that("MFCL CPUE extractor writes CSV file by default", {
   expect_true(file.exists(file.path(mfcl_dir, "cpue.csv")))
+})
+
+test_that("MFCL CPUE extractor can skip CSV saving", {
+  # Extract without saving CSV
+  cpue_no_csv = extract_mfcl_cpue(mfcl_rep, mfcl_par, "mfcl-v11", 
+                                   save_csv = FALSE, verbose = FALSE)
+  
+  # Verify data.table is still returned
+  expect_s3_class(cpue_no_csv, "data.table")
+  expect_equal(nrow(cpue_no_csv), nrow(cpue_mfcl))
+})
+
+test_that("MFCL CPUE extractor requires output_dir when save_csv = TRUE", {
+  expect_error(
+    extract_mfcl_cpue(mfcl_rep, mfcl_par, "mfcl-v11", save_csv = TRUE, verbose = FALSE),
+    "output_dir must be provided when save_csv = TRUE"
+  )
 })
 
 test_that("MFCL CPUE extractor model ID matches", {

@@ -1,15 +1,16 @@
 #' Extract CPUE Index Fit from MFCL Model
 #'
 #' Extracts observed and predicted CPUE values from MFCL report file,
-#' calculates standard errors from penalty values in par file, and writes
-#' to standardized CSV format compatible with plot_index_comparison().
+#' calculates standard errors from penalty values in par file, and optionally 
+#' writes to standardized CSV format compatible with plot_index_comparison().
 #'
 #' @param rep_file Character. Path to MFCL plot-*.rep file
 #' @param par_file Character. Path to MFCL *.par file
 #' @param model_id Character. Model identifier for output
 #' @param first_year Numeric. First year of model. Default 1952
 #' @param fishery_names Character vector. Optional fleet names. If NULL, uses default naming
-#' @param output_dir Character. Directory for output CSV
+#' @param output_dir Character. Directory for output CSV. Required if save_csv = TRUE
+#' @param save_csv Logical. Save output as CSV file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Time, Obs, Exp, SE, Dev, Use
@@ -27,11 +28,20 @@
 #'
 #' @examples
 #' \dontrun{
+#'   # Extract and save CSV
 #'   cpue_dt = extract_mfcl_cpue(
 #'     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
 #'     par_file = "model-files/mfcl/v11/10.par",
 #'     model_id = "mfcl-v11",
 #'     output_dir = "model-files/mfcl/v11"
+#'   )
+#'   
+#'   # Extract without saving CSV
+#'   cpue_dt = extract_mfcl_cpue(
+#'     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
+#'     par_file = "model-files/mfcl/v11/10.par",
+#'     model_id = "mfcl-v11",
+#'     save_csv = FALSE
 #'   )
 #' }
 #'
@@ -39,7 +49,8 @@
 extract_mfcl_cpue = function(rep_file, par_file, model_id,
                              first_year = 1952,
                              fishery_names = NULL,
-                             output_dir,
+                             output_dir = NULL,
+                             save_csv = TRUE,
                              verbose = TRUE) {
   # Validate inputs
   if(!file.exists(rep_file)) {
@@ -48,6 +59,10 @@ extract_mfcl_cpue = function(rep_file, par_file, model_id,
   
   if(!file.exists(par_file)) {
     stop(sprintf("Par file not found: %s", par_file))
+  }
+  
+  if(save_csv && is.null(output_dir)) {
+    stop("output_dir must be provided when save_csv = TRUE")
   }
   
   if(verbose) {
@@ -151,12 +166,14 @@ extract_mfcl_cpue = function(rep_file, par_file, model_id,
                     length(unique(cpue_dt$Fleet))))
   }
   
-  # 13. Write CSV
-  output_file = file.path(output_dir, "cpue.csv")
-  data.table::fwrite(cpue_dt, output_file)
-  
-  if(verbose) {
-    message(sprintf("CPUE data written to %s", output_file))
+  # 13. Write CSV (optional)
+  if(save_csv) {
+    output_file = file.path(output_dir, "cpue.csv")
+    data.table::fwrite(cpue_dt, output_file)
+    
+    if(verbose) {
+      message(sprintf("CPUE data written to %s", output_file))
+    }
   }
   
   # 14. Return data.table
