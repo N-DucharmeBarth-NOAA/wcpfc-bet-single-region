@@ -32,13 +32,13 @@
 	ss3_models = c("01-bet-base", "02-fix-sel")
 	ss3_biomass = rbindlist(lapply(
 		file.path(dir_ss3, ss3_models),
-		extract_ss3_biomass
+		function(x) extract_ss3_biomass(x, quarterly = FALSE)
 	))
 
 #_____________________________________________________________________________________________________________________________
 # extract MFCL biomass
 	mfcl_rep_file = file.path(dir_mfcl, "v11", "plot-10.par.rep")
-	mfcl_biomass = extract_mfcl_biomass(mfcl_rep_file, model_name = "MFCL-v11")
+	mfcl_biomass = extract_mfcl_biomass(mfcl_rep_file, model_name = "MFCL-v11", quarterly = FALSE)
 
 #_____________________________________________________________________________________________________________________________
 # combine SS3 and MFCL data
