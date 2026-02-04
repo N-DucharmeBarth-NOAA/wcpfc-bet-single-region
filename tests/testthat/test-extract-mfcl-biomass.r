@@ -33,9 +33,9 @@ test_that("extract_mfcl_biomass returns correct data types", {
 	expect_is(result$ts, "numeric")
 	expect_is(result$season, "numeric")	
 	expect_is(result$ssb, "numeric")
-	expect_is(result$ssb_se, "logical")
+	expect_is(result$ssb_se, "numeric")
 	expect_is(result$depletion, "numeric")
-	expect_is(result$depletion_se, "logical")
+	expect_is(result$depletion_se, "numeric")
 })
 
 test_that("extract_mfcl_biomass returns positive biomass values", {
