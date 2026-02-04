@@ -8,6 +8,7 @@
 #' @param harmonize_bins Logical. Rebin to target structure? Default FALSE
 #' @param target_bins Numeric vector. Target bin edges (lower bounds + upper edge).
 #'   Only used if harmonize_bins = TRUE
+#' @param save_csv Logical. Save output as CSV file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
@@ -34,12 +35,20 @@
 #'     harmonize_bins = TRUE,
 #'     target_bins = target_bins
 #'   )
+#'   
+#'   # Return data.table without saving CSV
+#'   len_comp = extract_ss3_length_comp(
+#'     model_dir = "model-files/ss3/01-bet-base",
+#'     model_id = "01-bet-base",
+#'     save_csv = FALSE
+#'   )
 #' }
 #'
 #' @export
 extract_ss3_length_comp = function(model_dir, model_id,
                                    harmonize_bins = FALSE,
                                    target_bins = NULL,
+                                   save_csv = TRUE,
                                    verbose = TRUE) {
   
   # Check if Report.sso exists
@@ -186,10 +195,12 @@ extract_ss3_length_comp = function(model_dir, model_id,
   len_agg = len_agg[, .(id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
                         Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj)]
   
-  # Step 10: Write CSV
-  output_file = file.path(model_dir, "comp_len.csv")
-  if(verbose) message("Writing output to ", output_file)
-  data.table::fwrite(len_agg, output_file)
+  # Step 10: Write CSV (optional)
+  if(save_csv) {
+    output_file = file.path(model_dir, "comp_len.csv")
+    if(verbose) message("Writing output to ", output_file)
+    data.table::fwrite(len_agg, output_file)
+  }
   
   # Step 11: Return data.table
   return(len_agg)

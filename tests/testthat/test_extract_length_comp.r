@@ -93,6 +93,33 @@ test_that("extract_ss3_length_comp writes output CSV", {
   expect_equal(nrow(len_read), nrow(len_comp))
 })
 
+test_that("extract_ss3_length_comp with save_csv=FALSE does not write CSV", {
+  skip_if_not(file.exists(file.path(dir_ss3, "01-bet-base", "Report.sso")),
+              "SS3 model files not available")
+  skip_if_not(requireNamespace("r4ss", quietly = TRUE),
+              "r4ss package not available")
+  
+  # Remove existing file if present
+  output_file = file.path(dir_ss3, "01-bet-base", "comp_len.csv")
+  if(file.exists(output_file)) {
+    unlink(output_file)
+  }
+  
+  len_comp = extract_ss3_length_comp(
+    file.path(dir_ss3, "01-bet-base"),
+    "01-bet-base",
+    save_csv = FALSE,
+    verbose = FALSE
+  )
+  
+  # Verify CSV was not created
+  expect_false(file.exists(output_file))
+  
+  # Verify data.table was still returned
+  expect_s3_class(len_comp, "data.table")
+  expect_true(all(required_cols %in% names(len_comp)))
+})
+
 test_that("extract_ss3_length_comp deviation equals Obs - Exp", {
   skip_if_not(file.exists(file.path(dir_ss3, "01-bet-base", "Report.sso")),
               "SS3 model files not available")
@@ -255,6 +282,29 @@ test_that("extract_mfcl_length_comp stops if frq file not found", {
   )
   
   unlink(temp_fit)
+})
+
+test_that("extract_mfcl_length_comp requires output_dir when save_csv=TRUE", {
+  # Create temporary dummy files for testing
+  temp_fit = tempfile(fileext = ".fit")
+  temp_frq = tempfile(fileext = ".frq")
+  writeLines("# dummy", temp_fit)
+  writeLines("# dummy", temp_frq)
+  
+  expect_error(
+    extract_mfcl_length_comp(
+      temp_fit,
+      temp_frq,
+      "test",
+      output_dir = NULL,
+      save_csv = TRUE,
+      verbose = FALSE
+    ),
+    "output_dir must be provided when save_csv = TRUE"
+  )
+  
+  unlink(temp_fit)
+  unlink(temp_frq)
 })
 
 # ===== Format Consistency Tests =====

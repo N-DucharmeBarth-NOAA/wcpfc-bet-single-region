@@ -9,7 +9,8 @@
 #' @param fishery_names Character vector. Optional fleet names
 #' @param harmonize_bins Logical. Rebin to target structure? Default FALSE
 #' @param target_bins Numeric vector. Target bin edges. Only used if harmonize_bins = TRUE
-#' @param output_dir Character. Directory for output CSV
+#' @param output_dir Character. Directory for output CSV. Required if save_csv = TRUE
+#' @param save_csv Logical. Save output as CSV file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
@@ -30,6 +31,14 @@
 #'     harmonize_bins = TRUE,
 #'     target_bins = seq(10, 200, by = 5)
 #'   )
+#'   
+#'   # Return data.table without saving CSV
+#'   len_comp = extract_mfcl_length_comp(
+#'     length_fit_file = "model-files/mfcl/v11/length.fit",
+#'     frq_file = "model-files/mfcl/v11/bet.frq",
+#'     model_id = "mfcl-v11",
+#'     save_csv = FALSE
+#'   )
 #' }
 #'
 #' @export
@@ -37,7 +46,8 @@ extract_mfcl_length_comp = function(length_fit_file, frq_file, model_id,
                                     fishery_names = NULL,
                                     harmonize_bins = FALSE,
                                     target_bins = NULL,
-                                    output_dir,
+                                    output_dir = NULL,
+                                    save_csv = TRUE,
                                     verbose = TRUE) {
   
   # Check if length.fit file exists
@@ -48,6 +58,11 @@ extract_mfcl_length_comp = function(length_fit_file, frq_file, model_id,
   # Check if frq file exists
   if(!file.exists(frq_file)) {
     stop(sprintf(".frq file not found: %s", frq_file))
+  }
+  
+  # Check if output_dir is provided when save_csv = TRUE
+  if(save_csv && is.null(output_dir)) {
+    stop("output_dir must be provided when save_csv = TRUE")
   }
   
   # Load required packages
@@ -318,10 +333,12 @@ extract_mfcl_length_comp = function(length_fit_file, frq_file, model_id,
   len_agg = len_agg[, .(id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
                         Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj)]
   
-  # Step 10: Write CSV
-  output_file = file.path(output_dir, "comp_len.csv")
-  if(verbose) message("Writing output to ", output_file)
-  data.table::fwrite(len_agg, output_file)
+  # Step 10: Write CSV (optional)
+  if(save_csv) {
+    output_file = file.path(output_dir, "comp_len.csv")
+    if(verbose) message("Writing output to ", output_file)
+    data.table::fwrite(len_agg, output_file)
+  }
   
   # Step 11: Return data.table
   return(len_agg)
