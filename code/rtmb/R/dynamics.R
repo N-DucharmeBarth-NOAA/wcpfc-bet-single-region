@@ -1,0 +1,226 @@
+#' Initial numbers and Beverton-Holt parameters
+#'
+#' Computes the initial equilibrium numbers-at-age, unfished recruitment (R0), and Beverton-Holt stock-recruitment parameters.
+#'
+#' @param B0 Unfished spawning biomass.
+#' @param h Beverton-Holt steepness parameter.
+#' @param M_a a \code{vector} of natural mortality at age.
+#' @param phi_ya a \code{matrix} by year of spawning output at age created using the [get_phi] function.
+#' @return A list containing:
+#' \describe{
+#'   \item{Ninit}{Initial numbers-at-age (vector).}
+#'   \item{R0}{Unfished recruitment (scalar).}
+#'   \item{alpha}{BH alpha parameter.}
+#'   \item{beta}{BH beta parameter.}
+#' }
+#' @importFrom RTMB ADoverload
+#' @export
+#'
+get_initial_numbers <- function(B0, h, M_a, phi_ya) {
+  "[<-" <- ADoverload("[<-")
+  n_age <- length(M_a)
+  rel_N <- numeric(n_age)
+  rel_N[1] <- 1
+  for (a in 2:n_age) rel_N[a] <- rel_N[a - 1] * exp(-M_a[a - 1])
+  rel_N[n_age] <- rel_N[n_age] / (1 - exp(-M_a[n_age]))
+  R0 <- B0 / sum(phi_ya[1,] * rel_N)
+  alpha <- (4 * h * R0) / (5 * h - 1)
+  beta  <- (B0 * (1 - h)) / (5 * h - 1)
+  return(list(Ninit = R0 * rel_N, R0 = R0, alpha = alpha, beta = beta))
+}
+
+#' Harvest rate calculation
+#'
+#' Computes age-specific harvest rates by fishery.
+#'
+#' @param y,s Year and season index.
+#' @param first_yr,first_yr_catch Model and catch start years.
+#' @param removal_switch_f Vector of slice-switch flags.
+#' @param catch_obs_ysf Observed catch by year-season-fishery.
+#' @param number_ysa 3D array of numbers-at-age.
+#' @param sel_fya Selectivity array.
+#' @param weight_fya Weight-at-age.
+#' @return a \code{list} with age-specific harvest rates, fishery, and penalty term.
+#' @importFrom RTMB ADoverload colSums
+#' @export
+#' 
+get_harvest_rate <- function(y, s, first_yr, first_yr_catch, removal_switch_f,
+                             catch_obs_ysf, number_ysa, sel_fya, weight_fya) {
+  "[<-" <- ADoverload("[<-")
+  n_fishery <- dim(weight_fya)[1]
+  n_year <- dim(sel_fya)[2]
+  n_age <- dim(sel_fya)[3]
+  yy <- y - (first_yr_catch - first_yr)
+  F_f <- numeric(n_fishery)
+  h_rate_fa <- array(0, dim = c(n_fishery, n_age))
+  for (f in seq_len(n_fishery)) {
+    if (catch_obs_ysf[yy, s, f] > 0) {
+      if (removal_switch_f[f] == 0) { # weight
+        Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] * weight_fya[f, y,]) + 1e-6
+        F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
+        h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
+      } else if (removal_switch_f[f] == 1) { # numbers
+        Nsum <- sum(number_ysa[y, s,] * sel_fya[f, y,] + 1e-6
+        F_f[f] <- catch_obs_ysf[yy, s, f] / Nsum
+        h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,]
+      }
+    }
+  }
+  sum_F <- sum(F_f)
+  tmp <- posfun(x = 1 - sum_F, eps = 0.001) # THIS PENALTY DOESNT APPLY FOR DIRECT REMOVALS
+  # F_f <- F_f / sum_F * tmp$new
+  # for (f in seq_len(n_fishery)) {
+  #   if (catch_obs_ysf[yy, s, f] > 0) {
+  #     if (removal_switch_f[f] == 0) {
+  #       h_rate_fa[f,] <- F_f[f] * sel_fya[f,y,] # what about direct removals
+  #     }
+  #   }
+  # }
+  h_rate_a <- colSums(h_rate_fa)
+  return(list(h_rate_fa = h_rate_fa, h_rate_a = h_rate_a, penalty = tmp$penalty))
+}
+
+#' Population dynamics
+#' 
+#' Runs the core age- and season-structured population dynamics loop for Southern Bluefin Tuna.
+#' Starts from initial equilibrium numbers (derived from B0 and h), applies seasonal harvest,
+#' natural mortality, spawning, recruitment (Beverton-Holt + log-normal deviates), and
+#' computes predicted catches and harvest rates. Handles both standard Baranov harvest
+#' (removal_switch_f == 0) and direct age-sliced removals (removal_switch_f == 1).
+#'
+#' @param first_yr Integer. First model year (e.g. 1931).
+#' @param first_yr_catch Integer. First year with catch data (determines when fishing begins).
+#' @param B0 Numeric. Unfished equilibrium spawning biomass.
+#' @param R0 Numeric. Unfished equilibrium recruitment (usually computed inside; kept for backward compatibility).
+#' @param alpha Numeric. Beverton-Holt stock-recruitment alpha parameter.
+#' @param beta Numeric. Beverton-Holt stock-recruitment beta parameter.
+#' @param h Numeric (0.2–1). Steepness of the Beverton-Holt stock-recruitment relationship.
+#' @param sigma_r Numeric > 0. Standard deviation of log recruitment deviations.
+#' @param rdev_y Numeric vector of length n_year. Log-scale recruitment deviations (one per recruitment year).
+#' @param M_a Numeric vector of length n_age. Natural mortality at age (age 0 to max_age).
+#' @param phi_ya Numeric matrix (n_year + 1 rows, n_age columns). Spawning output (maturity × fecundity × weight) per recruit at age, by year (pre-computed via [get_phi]).
+#' @param init_number_a 3D numeric array (n_season = 2, n_age). Initial numbers-at-age by season. Input provides initial conditions (year 1, season 1).
+#' @param removal_switch_f Integer vector of length n_fishery (= 6). 0 = standard Baranov harvest rate, 1 = direct removal using sliced age frequencies (af_sliced_ysfa).
+#' @param catch_obs_ysf 3D numeric array (n_catch_years, n_season = 2, n_fishery). Observed catch (weight) by year, season, and fishery.
+#' @param sel_fya 3D numeric array (n_fishery, n_year, n_age). Fishery-specific selectivity at age by year (pre-computed via [get_selectivity]).
+#' @param weight_fya 3D numeric array (n_fishery, n_year, n_age). Mean weight at age by fishery and year.
+#' @return A named list containing:
+#' \itemize{
+#'   \item number_ysa – updated numbers-at-age array
+#'   \item spawning_biomass_y – spawning biomass by year (length n_year + 1)
+#'   \item hrate_ysfa – harvest rates by year, season, fishery, age
+#'   \item hrate_ysa – total harvest rate by year, season, age
+#'   \item catch_pred_fya – predicted catch numbers by fishery, year, age
+#'   \item catch_pred_ysf – predicted catch weight by year, season, fishery
+#'   \item lp_penalty – total penalty from posfun() (harvest rate constraints)
+#'   \item (R0, alpha, beta also returned in some versions)
+#' }
+#' @importFrom RTMB ADoverload
+#' @export
+#' 
+do_dynamics <- function(first_yr, first_yr_catch,
+                        B0, R0, alpha, beta, h, sigma_r = 0.6, rdev_y, M_a, phi_ya,
+                        init_number_a,
+                        removal_switch_f, catch_obs_ysf, sel_fya, weight_fya) {
+  
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  n_year <- dim(sel_fya)[2]
+  n_season <- 2
+  n_age <- length(M_a)
+  n_age1 <- n_age - 1
+  n_fishery <- 6
+  fy <- first_yr_catch - first_yr + 1
+  S_a <- exp(-0.5 * M_a)
+  number_ysa <- array(0, dim = c(n_year + 1, n_season, n_age))
+  number_ysa[1, 1,] <- init_number_a
+  spawning_biomass_y <- numeric(n_year + 1)
+  # spawning_biomass_y[1] <- B0
+  spawning_biomass_y[1] <- sum(number_ysa[1, 1,] * phi_ya[1,]) # this works for projections now too
+  recruitment_y <- numeric(n_year)
+  recruitment_y[1] <- R0
+  hrate_ysfa  <- array(0, dim = c(n_year + 1, n_season, n_fishery, n_age))
+  hrate_ysa  <- array(0, dim = c(n_year + 1, n_season, n_age))
+  catch_pred_fya <- array(0, dim = c(n_fishery, n_year + 1, n_age))
+  catch_pred_ysf <- array(0, dim = c(n_year + 1, n_season, n_fishery))
+  lp_penalty <- 0
+  
+  for (y in seq_len(n_year)) {
+    # Season 1
+    if (y >= fy) {
+      hr <- get_harvest_rate(y, 1, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
+      hrate_ysfa[y,1,,] <- hr$h_rate_fa
+      hrate_ysa[y,1,] <- hr$h_rate_a
+      lp_penalty <- lp_penalty + hr$penalty
+    }
+    number_ysa[y,2,] <- number_ysa[y,1,] * (1 - hrate_ysa[y,1,]) * S_a
+    # Season 2
+    if (y >= fy) {
+      hr <- get_harvest_rate(y, 2, first_yr, first_yr_catch, removal_switch_f, catch_obs_ysf, number_ysa, sel_fya, weight_fya)
+      hrate_ysfa[y,2,,] <- hr$h_rate_fa
+      hrate_ysa[y,2,] <- hr$h_rate_a
+      lp_penalty <- lp_penalty + hr$penalty
+    }
+    number_ysa[y + 1, 1, 2:n_age] <- number_ysa[y, 2, 1:n_age1] * (1 - hrate_ysa[y, 2, 1:n_age1]) * S_a[1:n_age1]
+    number_ysa[y + 1, 1, n_age] <- number_ysa[y + 1, 1, n_age] + (number_ysa[y, 2, n_age] * (1 - hrate_ysa[y, 2, n_age]) * S_a[n_age])
+    spawning_biomass_y[y + 1] <- sum(number_ysa[y + 1, 1,] * phi_ya[y + 1,])
+    recruitment_y[y + 1] <- get_recruitment(sbio = spawning_biomass_y[y + 1], rdev = rdev_y[y], B0 = B0, alpha = alpha, beta = beta, sigma_r = sigma_r)
+    number_ysa[y + 1, 1, 1] <- recruitment_y[y + 1]
+    for (f in seq_len(n_fishery)) {
+      for (s in seq_len(n_season)) {
+        catch_pred_fya[f, y,] <- catch_pred_fya[f, y,] + hrate_ysfa[y, s, f,] * number_ysa[y, s,]
+        for (a in seq_len(n_age)) {
+          catch_pred_ysf[y, s, f] <- catch_pred_ysf[y, s, f] + hrate_ysfa[y, s, f, a] * number_ysa[y, s, a] * weight_fya[f, y, a]
+        }
+      }
+    }
+  }
+  
+  return(list(number_ysa = number_ysa, spawning_biomass_y = spawning_biomass_y, 
+              hrate_ysfa = hrate_ysfa, hrate_ysa = hrate_ysa, 
+              catch_pred_fya = catch_pred_fya, catch_pred_ysf = catch_pred_ysf,
+              lp_penalty = lp_penalty))
+}
+
+#' Spawning output-at-age
+#'
+#' Calculates spawning output per recruit at age and year using length-based maturity and fecundity scaling.
+#'
+#' @param log_psi Scalar fecundity scaling exponent.
+#' @param length_m50 Length at 50% maturity.
+#' @param length_m95 Length at 95% maturity.
+#' @param length_mu_ysa 3D array year, season, age of expected length-at-age.
+#' @param length_sd_a Vector of length standard deviations at age.
+#' @param dl_yal a 3D \code{array} by year, age, length_bin of length distribution weights.
+#' @return Matrix year + 1, age of normalized spawning output-at-age.
+#' @export
+#'
+get_phi <- function(log_psi, length_m50, length_m95, length_mu_ysa, length_sd_a, dl_yal) {
+  "[<-" <- ADoverload("[<-")
+  n_age <- length(length_sd_a)
+  n_year <- nrow(length_mu_ysa)
+  n_bins <- 15
+  phi_ya <- matrix(0, n_year + 1, n_age)
+  psi <- exp(log_psi)
+  for (iy in seq_len(n_year)) {
+    phi_a <- numeric(n_age)
+    for (ia in seq_len(n_age)) {
+      lref <- length_mu_ysa[iy, 2, ia] # season 2 for phi
+      sdref <- length_sd_a[ia]
+      llq <- lref - 1.98 * sdref
+      if (llq < 0) llq <- 0
+      luq <- lref + 1.98 * sdref
+      ldel <- (luq - llq) / (n_bins - 1)
+      for (il in seq_len(n_bins)) {
+        ltmp <- llq + (il - 1) * ldel
+        matl <- 1 / (1 + 19^((length_m50 - ltmp) / (length_m95 - length_m50)))
+        phil <- ltmp^(3 * psi) * matl
+        phi_a[ia] <- phi_a[ia] + dl_yal[iy, ia, il] * phil
+      }
+    }
+    #phi_ya[iy,] <- phi_a / max(phi_a)
+    phi_ya[iy,] <- phi_a / phi_a[n_age] # don't use max/monotonically inc. fn.
+  }
+  phi_ya[n_year + 1,] <- phi_ya[n_year,]
+  return(phi_ya)
+}
