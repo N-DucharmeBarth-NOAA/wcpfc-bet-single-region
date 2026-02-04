@@ -2,7 +2,7 @@
 #'
 #' Extracts observed and predicted CPUE values from MFCL report file,
 #' calculates standard errors from penalty values in par file, and writes
-#' to standardized CSV format.
+#' to standardized CSV format compatible with plot_index_comparison().
 #'
 #' @param rep_file Character. Path to MFCL plot-*.rep file
 #' @param par_file Character. Path to MFCL *.par file

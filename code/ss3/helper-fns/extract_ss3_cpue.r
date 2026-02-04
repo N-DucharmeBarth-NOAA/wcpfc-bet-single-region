@@ -1,7 +1,8 @@
 #' Extract CPUE Index Fit from SS3 Model
 #'
 #' Extracts observed and predicted CPUE values with standard errors from
-#' Stock Synthesis output and writes to standardized CSV format.
+#' Stock Synthesis output and writes to standardized CSV format compatible
+#' with plot_index_comparison().
 #'
 #' @param model_dir Character. Path to SS3 model directory containing Report.sso
 #' @param model_id Character. Model identifier for output
