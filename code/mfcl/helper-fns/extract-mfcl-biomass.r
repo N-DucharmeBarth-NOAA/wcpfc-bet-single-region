@@ -8,10 +8,10 @@
 # library(magrittr)
 # library(this.path)
 # rep_file = file.path(this.path::this.proj(), "model-files", "mfcl", "v11", "plot-10.par.rep")
-# result = extract_mfcl_biomass(rep_file, model_name = "MFCL-v11", quarterly = FALSE)
+# result = extract_mfcl_biomass(rep_file, model_name = "MFCL-v11", quarterly = TRUE)
 # head(result)
 
-extract_mfcl_biomass = function(rep_file, model_name = NULL, quarterly = FALSE) {
+extract_mfcl_biomass = function(rep_file, model_name = NULL, quarterly = TRUE) {
 	if(!file.exists(rep_file)) {
 		stop(sprintf("Report file not found: %s", rep_file))
 	}
