@@ -16,15 +16,16 @@ sapply(file.path(dir_helper_fns, list.files(dir_helper_fns)), source)
 
 context("extract_ss3_biomass")
 
+# Compute result once and reuse across tests to avoid repeatedly parsing Report.sso
+result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
+
 test_that("extract_ss3_biomass returns data.table with correct structure", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
 	
 	expect_s3_class(result, "data.table")
 	expect_named(result, c("model", "year", "ts", "season", "ssb", "ssb_se", "depletion", "depletion_se"))
 })
 
 test_that("extract_ss3_biomass returns correct data types", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
 	
 	expect_is(result$model, "character")
 	expect_is(result$year, "numeric")
@@ -35,14 +36,12 @@ test_that("extract_ss3_biomass returns correct data types", {
 })
 
 test_that("extract_ss3_biomass returns positive biomass values", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
 	
 	expect_true(all(result$ssb > 0), 
 	            info = paste("Found SSB values <= 0:", paste(result[ssb <= 0]$ssb, collapse = ", ")))
 })
 
 test_that("extract_ss3_biomass returns depletion between 0 and 1", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
 	
 	expect_true(all(result$depletion[!is.na(result$depletion)] >= 0 & result$depletion[!is.na(result$depletion)] <= 1), 
 	            info = paste("Found depletion outside [0,1]:", 
@@ -50,30 +49,28 @@ test_that("extract_ss3_biomass returns depletion between 0 and 1", {
 })
 
 test_that("extract_ss3_biomass returns no NA values", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))[,.(model, year, ts, season, ssb, ssb_se)]
+	result_subset = result[,.(model, year, ts, season, ssb, ssb_se)]
 	
-	expect_false(anyNA(result), 
+	expect_false(anyNA(result_subset), 
 	            info = paste("Found NA values in columns:", 
-	                         paste(colnames(result)[colSums(is.na(result)) > 0], collapse = ", ")))
+	                         paste(colnames(result_subset)[colSums(is.na(result_subset)) > 0], collapse = ", ")))
 })
 
 test_that("extract_ss3_biomass model name matches directory", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
 	
 	expect_equal(unique(result$model), "01-bet-base")
 })
 
 test_that("extract_ss3_biomass years are sorted", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))
 	
 	expect_equal(result$ts, sort(result$ts))
 })
 
 test_that("extract_ss3_biomass standard errors are positive", {
-	result = extract_ss3_biomass(file.path(dir_ss3, "01-bet-base"))[,.(model, year, ts, season, ssb_se, depletion_se)]
+	result_subset = result[,.(model, year, ts, season, ssb_se, depletion_se)]
 	
-	expect_true(all(result$ssb_se > 0))
-	expect_true(all(result$depletion_se[-1] > 0))
+	expect_true(all(result_subset$ssb_se > 0))
+	expect_true(all(result_subset$depletion_se[-1] > 0))
 })
 
 test_that("extract_ss3_biomass stops if Report.sso not found", {
