@@ -27,7 +27,7 @@
 #'   selex_dt = extract_mfcl_selectivity(
 #'     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
 #'     par_file = "model-files/mfcl/v11/10.par",
-#'     model_id = "mfcl-v11",
+#'     model_id = "v11",
 #'     output_dir = "model-files/mfcl/v11"
 #'   )
 #' }
@@ -82,13 +82,19 @@ extract_mfcl_selectivity = function(rep_file, par_file, model_id,
   selex_dt = merge(selex_dt, tmp_growth, by = "age")
   
   # Get final year from report
-  # Extract year range from report file
-  tmp_years = as.data.table(FLR4MFCL::sel(tmp.rep))
-  if("year" %in% names(tmp_years)) {
-    final_year = max(as.numeric(as.character(tmp_years$year)), na.rm = TRUE)
+  # Extract year range from biomass data
+  tmp_ssb = as.data.table(FLR4MFCL::ssb(tmp.rep))
+  if("year" %in% names(tmp_ssb)) {
+    final_year = max(as.numeric(as.character(tmp_ssb$year)), na.rm = TRUE)
   } else {
-    # If year not available, use dimensions or assume end year
-    final_year = first_year + length(unique(tmp_years$season)) / 4 - 1
+    # If year not available, calculate from first_year and dimensions
+    warning("Could not extract final year from report, using calculation from first_year")
+    # This is a fallback - actual year should be extracted from report
+    final_year = first_year + nrow(tmp_ssb[age == "all"]) / 4 - 1
+  }
+  
+  if(verbose) {
+    message(sprintf("Extracting selectivity for final year %d", final_year))
   }
   
   # Create fleet names

@@ -63,10 +63,13 @@ extract_ss3_selectivity = function(model_dir, model_id, verbose = TRUE) {
     # Add fleet names from definitions
     .[, Fleet_name := tmp_flt$Fleet_name[Fleet]] %>%
     # Select and reorder columns to match standard format
-    .[, .(id, Fleet, Fleet_name, Yr, Sex, variable, value)]
-  
-  # Convert variable (length bins) to numeric
-  tmp_len_selex[, variable := as.numeric(as.character(variable))]
+    .[, .(id, Fleet, Fleet_name, Yr, Sex, variable, value)] %>%
+    # Ensure proper data types
+    .[, Fleet := as.integer(Fleet)] %>%
+    .[, Yr := as.integer(Yr)] %>%
+    .[, Sex := as.integer(Sex)] %>%
+    .[, variable := as.numeric(as.character(variable))] %>%
+    .[, value := as.numeric(value)]
   
   # Write CSV output
   output_file = file.path(model_dir, "selex_l.csv")

@@ -85,7 +85,7 @@ context("extract_mfcl_selectivity")
 selex_mfcl = extract_mfcl_selectivity(
   rep_file = mfcl_rep,
   par_file = mfcl_par,
-  model_id = "mfcl-v11",
+  model_id = "v11",
   output_dir = mfcl_dir,
   verbose = FALSE
 )
@@ -139,7 +139,7 @@ test_that("MFCL selectivity has no NA values in required columns", {
 })
 
 test_that("MFCL model ID matches input", {
-  expect_equal(unique(selex_mfcl$id), "mfcl-v11")
+  expect_equal(unique(selex_mfcl$id), "v11")
 })
 
 test_that("MFCL selectivity Sex is 0 (aggregated)", {
@@ -178,7 +178,7 @@ test_that("Outputs work with plotting function", {
   # We don't check the actual plot, just that it doesn't error
   expect_error(
     plot_model_comparison_selex(
-      model_ids = c("01-bet-base", "mfcl-v11"),
+      model_ids = c("01-bet-base", "v11"),
       model_stem = c(dir_ss3, dir_mfcl),
       model_labels = c("SS3", "MFCL")
     ),
