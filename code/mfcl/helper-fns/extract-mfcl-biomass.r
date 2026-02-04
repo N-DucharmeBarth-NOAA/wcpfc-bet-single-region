@@ -74,9 +74,9 @@ extract_mfcl_biomass = function(rep_file, model_name = NULL, quarterly = FALSE) 
 			ts,
 			season,
 			ssb = Value_fished,
-			ssb_se = NA,
+			ssb_se = NA_real_,
 			depletion = Value_fished / Value_unfished,
-			depletion_se = NA
+			depletion_se = NA_real_
 		)]
 	
 	setorderv(biomass_dt, c("year"))
