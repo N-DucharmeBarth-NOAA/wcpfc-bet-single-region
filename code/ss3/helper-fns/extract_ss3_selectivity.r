@@ -1,10 +1,11 @@
 #' Extract Selectivity-at-Length from SS3 Model
 #'
 #' Extracts final year selectivity curves for all fleets from Stock Synthesis
-#' output and writes to standardized CSV format.
+#' output and optionally writes to standardized CSV format.
 #'
 #' @param model_dir Character. Path to SS3 model directory containing Report.sso
 #' @param model_id Character. Model identifier for output
+#' @param write_csv Logical. Write output to selex_l.csv file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Yr, Sex, variable, value
@@ -16,20 +17,25 @@
 #'
 #' @examples
 #' \dontrun{
+#'   # Extract and write CSV
 #'   selex_dt = extract_ss3_selectivity(
 #'     model_dir = "model-files/ss3/01-bet-base",
 #'     model_id = "01-bet-base"
 #'   )
 #'   
+#'   # Extract without writing CSV
+#'   selex_dt = extract_ss3_selectivity(
+#'     model_dir = "model-files/ss3/01-bet-base",
+#'     model_id = "01-bet-base",
+#'     write_csv = FALSE
+#'   )
+#'   
 #'   # Check output
 #'   head(selex_dt)
-#'   
-#'   # Verify CSV written
-#'   file.exists("model-files/ss3/01-bet-base/selex_l.csv")
 #' }
 #'
 #' @export
-extract_ss3_selectivity = function(model_dir, model_id, verbose = TRUE) {
+extract_ss3_selectivity = function(model_dir, model_id, write_csv = TRUE, verbose = TRUE) {
   # Validate inputs
   if(!file.exists(file.path(model_dir, "Report.sso"))) {
     stop(sprintf("Report.sso not found in %s", model_dir))
@@ -71,12 +77,17 @@ extract_ss3_selectivity = function(model_dir, model_id, verbose = TRUE) {
     .[, variable := as.numeric(as.character(variable))] %>%
     .[, value := as.numeric(value)]
   
-  # Write CSV output
-  output_file = file.path(model_dir, "selex_l.csv")
-  data.table::fwrite(tmp_len_selex, output_file)
+  # Write CSV output if requested
+  if(write_csv) {
+    output_file = file.path(model_dir, "selex_l.csv")
+    data.table::fwrite(tmp_len_selex, output_file)
+    
+    if(verbose) {
+      message(sprintf("Written %d rows to %s", nrow(tmp_len_selex), output_file))
+    }
+  }
   
   if(verbose) {
-    message(sprintf("Written %d rows to %s", nrow(tmp_len_selex), output_file))
     message(sprintf("  Fleets: %s", paste(unique(tmp_len_selex$Fleet), collapse = ", ")))
     message(sprintf("  Length range: %.1f - %.1f cm", 
                     min(tmp_len_selex$variable), 

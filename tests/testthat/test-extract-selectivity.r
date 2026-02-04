@@ -79,6 +79,28 @@ test_that("SS3 model ID matches input", {
   expect_equal(unique(selex_ss3$id), "01-bet-base")
 })
 
+test_that("SS3 selectivity extractor with write_csv=FALSE does not write file", {
+  # Use a temporary directory to test
+  temp_dir = file.path(ss3_dir, "temp_test")
+  dir.create(temp_dir, showWarnings = FALSE)
+  
+  # Copy Report.sso to temp dir for testing
+  file.copy(file.path(ss3_dir, "Report.sso"), temp_dir, overwrite = TRUE)
+  
+  # Extract without writing CSV
+  selex_no_csv = extract_ss3_selectivity(temp_dir, "test-no-csv", write_csv = FALSE, verbose = FALSE)
+  
+  # Check that CSV was not created
+  expect_false(file.exists(file.path(temp_dir, "selex_l.csv")))
+  
+  # Check that data.table was still returned
+  expect_s3_class(selex_no_csv, "data.table")
+  expect_true(nrow(selex_no_csv) > 0)
+  
+  # Cleanup
+  unlink(temp_dir, recursive = TRUE)
+})
+
 context("extract_mfcl_selectivity")
 
 # Compute MFCL result once
@@ -144,6 +166,37 @@ test_that("MFCL model ID matches input", {
 
 test_that("MFCL selectivity Sex is 0 (aggregated)", {
   expect_true(all(selex_mfcl$Sex == 0))
+})
+
+test_that("MFCL selectivity extractor with write_csv=FALSE does not write file", {
+  # Extract without writing CSV
+  selex_no_csv = extract_mfcl_selectivity(
+    rep_file = mfcl_rep,
+    par_file = mfcl_par,
+    model_id = "test-no-csv",
+    write_csv = FALSE,
+    verbose = FALSE
+  )
+  
+  # Check that data.table was still returned
+  expect_s3_class(selex_no_csv, "data.table")
+  expect_true(nrow(selex_no_csv) > 0)
+  expect_equal(names(selex_no_csv), c("id", "Fleet", "Fleet_name", "Yr", "Sex", "variable", "value"))
+})
+
+test_that("MFCL selectivity extractor requires output_dir when write_csv=TRUE", {
+  # Should error when output_dir is NULL and write_csv is TRUE
+  expect_error(
+    extract_mfcl_selectivity(
+      rep_file = mfcl_rep,
+      par_file = mfcl_par,
+      model_id = "test-error",
+      output_dir = NULL,
+      write_csv = TRUE,
+      verbose = FALSE
+    ),
+    "output_dir must be specified when write_csv = TRUE"
+  )
 })
 
 context("extractor_compatibility")

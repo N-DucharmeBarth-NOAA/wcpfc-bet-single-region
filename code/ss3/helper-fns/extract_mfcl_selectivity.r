@@ -1,14 +1,15 @@
 #' Extract Selectivity-at-Length from MFCL Model
 #'
 #' Extracts selectivity curves from MFCL report file, converts from age-based
-#' to length-based using the growth curve, and writes to standardized CSV format.
+#' to length-based using the growth curve, and optionally writes to standardized CSV format.
 #'
 #' @param rep_file Character. Path to MFCL plot-*.rep file
 #' @param par_file Character. Path to MFCL *.par file
 #' @param model_id Character. Model identifier for output
 #' @param first_year Numeric. First year of model. Default 1952
 #' @param fishery_names Character vector. Optional fleet names. If NULL, uses default naming
-#' @param output_dir Character. Directory for output CSV
+#' @param output_dir Character. Directory for output CSV (required if write_csv = TRUE)
+#' @param write_csv Logical. Write output to selex_l.csv file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Yr, Sex, variable, value
@@ -24,11 +25,20 @@
 #'
 #' @examples
 #' \dontrun{
+#'   # Extract and write CSV
 #'   selex_dt = extract_mfcl_selectivity(
 #'     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
 #'     par_file = "model-files/mfcl/v11/10.par",
 #'     model_id = "v11",
 #'     output_dir = "model-files/mfcl/v11"
+#'   )
+#'   
+#'   # Extract without writing CSV
+#'   selex_dt = extract_mfcl_selectivity(
+#'     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
+#'     par_file = "model-files/mfcl/v11/10.par",
+#'     model_id = "v11",
+#'     write_csv = FALSE
 #'   )
 #' }
 #'
@@ -36,7 +46,8 @@
 extract_mfcl_selectivity = function(rep_file, par_file, model_id, 
                                     first_year = 1952,
                                     fishery_names = NULL,
-                                    output_dir,
+                                    output_dir = NULL,
+                                    write_csv = TRUE,
                                     verbose = TRUE) {
   # Validate inputs
   if(!file.exists(rep_file)) {
@@ -44,6 +55,9 @@ extract_mfcl_selectivity = function(rep_file, par_file, model_id,
   }
   if(!file.exists(par_file)) {
     stop(sprintf("Parameter file not found: %s", par_file))
+  }
+  if(write_csv && is.null(output_dir)) {
+    stop("output_dir must be specified when write_csv = TRUE")
   }
   
   if(verbose) {
@@ -132,12 +146,17 @@ extract_mfcl_selectivity = function(rep_file, par_file, model_id,
     )] %>%
     .[order(Fleet, variable)]
   
-  # Write CSV output
-  output_file = file.path(output_dir, "selex_l.csv")
-  data.table::fwrite(result, output_file)
+  # Write CSV output if requested
+  if(write_csv) {
+    output_file = file.path(output_dir, "selex_l.csv")
+    data.table::fwrite(result, output_file)
+    
+    if(verbose) {
+      message(sprintf("Written %d rows to %s", nrow(result), output_file))
+    }
+  }
   
   if(verbose) {
-    message(sprintf("Written %d rows to %s", nrow(result), output_file))
     message(sprintf("  Fleets: %s", paste(unique(result$Fleet), collapse = ", ")))
     message(sprintf("  Length range: %.1f - %.1f cm", 
                     min(result$variable), 
