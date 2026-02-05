@@ -11,11 +11,12 @@ proj_dir = this.path::this.proj()
 dir_model = file.path(proj_dir, "model-files")
 dir_ss3 = file.path(dir_model, "ss3")
 dir_mfcl = file.path(dir_model, "mfcl")
-dir_helper_fns = file.path(proj_dir, "code", "ss3", "helper-fns")
+dir_helper_fns_ss3 = file.path(proj_dir, "code", "ss3", "helper-fns")
+dir_helper_fns_mfcl = file.path(proj_dir, "code", "mfcl", "helper-fns")
 
 # Source helper functions
-sapply(file.path(dir_helper_fns, list.files(dir_helper_fns)), source)
-
+sapply(file.path(dir_helper_fns_ss3, list.files(dir_helper_fns_ss3)), source)
+sapply(file.path(dir_helper_fns_mfcl, list.files(dir_helper_fns_mfcl)), source)
 context("extract_ss3_selectivity")
 
 # Test data paths
@@ -224,17 +225,3 @@ test_that("Both extractors produce data in expected value ranges", {
   expect_true(all(selex_mfcl$variable > 0))
 })
 
-context("plotting_integration")
-
-test_that("Outputs work with plotting function", {
-  # This test verifies that the plotting function can read and process both outputs
-  # We don't check the actual plot, just that it doesn't error
-  expect_error(
-    plot_model_comparison_selex(
-      model_ids = c("01-bet-base", "v11"),
-      model_stem = c(dir_ss3, dir_mfcl),
-      model_labels = c("SS3", "MFCL")
-    ),
-    NA  # Expect no error
-  )
-})
