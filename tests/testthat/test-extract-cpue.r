@@ -30,9 +30,9 @@ test_that("SS3 CPUE extractor produces correct structure", {
 
 test_that("SS3 CPUE extractor produces correct data types", {
   expect_type(cpue_ss3$id, "character")
-  expect_type(cpue_ss3$Fleet, "numeric")
+  expect_type(cpue_ss3$Fleet, "double")
   expect_type(cpue_ss3$Fleet_name, "character")
-  expect_type(cpue_ss3$Time, "numeric")
+  expect_type(cpue_ss3$Time, "double")
   expect_type(cpue_ss3$Obs, "double")
   expect_type(cpue_ss3$Exp, "double")
   expect_type(cpue_ss3$SE, "double")
