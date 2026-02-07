@@ -1086,29 +1086,24 @@ plot_cpue_modular = function(cpue_input,
   # For observed data, take first occurrence to avoid duplication
   obs_dt = cpue_dt[, .SD[1], by = .(Fleet_name, time)]
   
-  # Calculate error bars
-  if (use_log_scale) {
-    # For log scale, use additive SE
-    obs_dt[, lse := obs - se]
-    obs_dt[, use := obs + se]
-    # Apply log transformation
-    obs_dt[, obs := log(obs)]
-  } else {
-    # For normal scale, use multiplicative SE
-    obs_dt[, lse := exp(log(obs) - se)]
-    obs_dt[, use := exp(log(obs) + se)]
-  }
-  
   # For fitted values, aggregate by model_label
   fit_dt = cpue_dt[, .(exp = mean(exp, na.rm = TRUE)), 
                    by = .(model_label, Fleet_name, fleet, time)]
   
-  # Apply log transformation to fitted values if requested
+  # Apply transformations and calculate error bars
   if (use_log_scale) {
+    # Apply log transformation first
+    obs_dt[, obs := log(obs)]
     fit_dt[, exp := log(exp)]
+    # For log scale, use additive SE
+    obs_dt[, lse := obs - se]
+    obs_dt[, use := obs + se]
     ylab_txt = "Index (log-scale)"
     yint = 0
   } else {
+    # For normal scale, use multiplicative SE
+    obs_dt[, lse := exp(log(obs) - se)]
+    obs_dt[, use := exp(log(obs) + se)]
     ylab_txt = "Index"
     yint = 1
   }
