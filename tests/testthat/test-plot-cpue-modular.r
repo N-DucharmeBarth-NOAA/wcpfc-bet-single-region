@@ -12,7 +12,7 @@ dir_mfcl = file.path(dir_model, "mfcl")
 dir_helper_fns = file.path(proj_dir, "code", "ss3", "helper-fns")
 
 # Source helper functions
-source(file.path(dir_helper_fns, "report-helpers.r"))
+source(file.path(dir_helper_fns, "plot-cpue-modular.r"))
 
 context("plot_cpue_modular")
 
