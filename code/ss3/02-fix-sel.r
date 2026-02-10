@@ -48,15 +48,16 @@
     for(idx in flag_idx){
       line = report_lines[idx]
       parts = strsplit(trimws(line), "\\s+")[[1]]
-      if(length(parts) >= 9){
+      if(length(parts) >= 10){
         param_name = parts[2]
         param_value = as.numeric(parts[3])
+        param_phase = as.numeric(parts[5])
         min_bound = as.numeric(parts[6])
         max_bound = as.numeric(parts[7])
         init_value = as.numeric(parts[8])
         status = parts[10]
         flagged_params = rbind(flagged_params, 
-          data.table(name=param_name, value=param_value, lo=min_bound, hi=max_bound, init=init_value, status=status))
+          data.table(name=param_name, value=param_value, phase=param_phase, lo=min_bound, hi=max_bound, init=init_value, status=status))
       }
     }
     
@@ -71,10 +72,11 @@
       old_lo = flagged_params$lo[i]
       old_hi = flagged_params$hi[i]
       init_val = flagged_params$init[i]
+      param_phase = flagged_params$phase[i]
       
       # Strategy: only modify ascend_se/descend_se with bounds -7 to 7 (expand to -9 to 9)
-      # Skip logit parameters with bounds -999 to 9 (they are acceptable)
-      # Skip width parameter for now
+      # For end_logit with bounds -999 to 9: change lower bound to -9 if being estimated (PHASE > 0)
+      # Skip start_logit parameters (they have bounds -999 to 9 and are not being estimated)
       
       new_lo = old_lo
       new_hi = old_hi
@@ -87,8 +89,12 @@
         # Size_95%width parameter: set to 0 to 50
         new_lo = 0
         new_hi = 50
+      } else if(grepl("end_logit", param_name) && (old_lo == -999 || old_lo == -999.0) && param_phase > 0){
+        # end_logit parameter being estimated: change lower bound from -999 to -9
+        new_lo = -9
+        new_hi = old_hi
       } else if(old_lo == -999 || old_lo == -999.0){
-        # Skip logit parameters (end_logit, start_logit with bounds -999 to 9)
+        # Skip start_logit and other logit parameters with bounds -999 to 9
         next
       } else {
         next
