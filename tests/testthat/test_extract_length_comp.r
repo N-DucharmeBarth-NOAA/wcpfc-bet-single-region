@@ -680,3 +680,49 @@ test_that("SS3 and MFCL time-resolved ts values overlap", {
   # There should be at least some overlapping time steps
   expect_true(length(common_ts) > 0)
 })
+
+test_that("SS3 and MFCL time-resolved observed values match for spot-check selection", {
+  skip_if_not(!is.null(len_ss3_time) && !is.null(len_mfcl_time),
+              "Both SS3 and MFCL time-resolved data must be available")
+  
+  # Find common time steps
+  ss3_ts = sort(unique(len_ss3_time$ts))
+  mfcl_ts = sort(unique(len_mfcl_time$ts))
+  common_ts = intersect(ss3_ts, mfcl_ts)
+  
+  skip_if(length(common_ts) == 0, "No common time steps between SS3 and MFCL time-resolved data")
+  
+  # Sample a few time steps for spot check (first 3, or all if fewer than 3)
+  sampled_ts = common_ts[1:min(3, length(common_ts))]
+  
+  # For each sampled time step, compare fleets and bins
+  for(ts_val in sampled_ts) {
+    ss3_ts_data = len_ss3_time[ts == ts_val, .(Fleet, Fleet_name, Bin, Obs)]
+    mfcl_ts_data = len_mfcl_time[ts == ts_val, .(Fleet, Fleet_name, Bin, Obs)]
+    
+    # Find common fleets
+    common_fleets = intersect(ss3_ts_data$Fleet, mfcl_ts_data$Fleet)
+    
+    for(fleet in common_fleets) {
+      ss3_fleet = ss3_ts_data[Fleet == fleet, .(Bin, Obs)]
+      setorder(ss3_fleet, Bin)
+      
+      mfcl_fleet = mfcl_ts_data[Fleet == fleet, .(Bin, Obs)]
+      setorder(mfcl_fleet, Bin)
+      
+      # Find common bins
+      common_bins = intersect(ss3_fleet$Bin, mfcl_fleet$Bin)
+      
+      if(length(common_bins) > 0) {
+        ss3_subset = ss3_fleet[Bin %in% common_bins]
+        mfcl_subset = mfcl_fleet[Bin %in% common_bins]
+        
+        # For disaggregated data, tolerance accounts for rounding and extraction differences
+        # Spot checks show max differences around 0.003 across time steps and fleets
+        # Use 3e-3 (0.003) tolerance, same as aggregated comparisons, but applied to raw time-resolved data
+        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
+             label = paste("TS", ts_val, "Fleet", fleet, "time-resolved observed values should match closely between SS3 and MFCL"))
+      }
+    }
+  }
+})
