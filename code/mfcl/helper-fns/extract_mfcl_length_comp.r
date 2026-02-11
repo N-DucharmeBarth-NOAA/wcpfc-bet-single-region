@@ -12,9 +12,13 @@
 #' @param output_dir Character. Directory for output CSV. Required if save_csv = TRUE
 #' @param save_csv Logical. Save output as CSV file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
+#' @param aggregate Logical. Aggregate across time? Default TRUE. When FALSE,
+#'   returns per-observation data with year, month, and ts columns and saves
+#'   as comp_len_time.csv instead of comp_len.csv.
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
-#'   Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj
+#'   Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj. When aggregate = FALSE, also
+#'   includes year, month, and ts (quarterly time step from 1952 Q1).
 #' 
 #' @details
 #' Reads MFCL length.fit file using FLR4MFCL::read.MFCLLenFit() if available,
@@ -49,7 +53,8 @@ extract_mfcl_length_comp = function(length_fit_file, frq_file, model_id,
                                     output_dir = NULL,
                                     save_csv = TRUE,
                                     verbose = TRUE,
-                                    zero_replace = NULL) {
+                                    zero_replace = NULL,
+                                    aggregate = TRUE) {
   
   # Check if length.fit file exists
   if(!file.exists(length_fit_file)) {
@@ -170,6 +175,7 @@ extract_mfcl_length_comp = function(length_fit_file, frq_file, model_id,
             len_list[[length(len_list) + 1]] = list(
               fishery = data_mat[i, 1],
               year = data_mat[i, 2],
+              month = data_mat[i, 3],
               bin_mid = bin_lower[j] + bin_width / 2,
               bin_lower = bin_lower[j],
               prop_obs = data_mat[i, obs_cols[j]],
@@ -217,6 +223,80 @@ extract_mfcl_length_comp = function(length_fit_file, frq_file, model_id,
   }
   if("nsamp" %in% names(len_dt)) {
     data.table::setnames(len_dt, "nsamp", "Nsamp_in", skip_absent = TRUE)
+  }
+  
+  # Step 2b: Return pre-aggregated (time-resolved) data if requested
+  if(!aggregate) {
+    if(harmonize_bins) {
+      warning("harmonize_bins is ignored when aggregate = FALSE")
+    }
+    
+    if(verbose) message("Returning pre-aggregated (time-resolved) length composition data")
+    
+    # Ensure year and month columns exist
+    if(!"year" %in% names(len_dt)) {
+      stop("year column not found in parsed length.fit data")
+    }
+    if(!"month" %in% names(len_dt)) {
+      stop("month column not found in parsed length.fit data")
+    }
+    
+    # Ensure year and month are integer type
+    len_dt[, year := as.integer(year)]
+    len_dt[, month := as.integer(month)]
+    
+    # Calculate ts (quarterly time step index, 1-based starting 1952 Q1)
+    len_dt[, ts := (year - 1952L) * 4L + match(month, c(2L, 5L, 8L, 11L))]
+    
+    # Apply zero replacement if requested
+    if(!is.null(zero_replace)) {
+      if(!is.numeric(zero_replace) || length(zero_replace) != 1) {
+        stop("zero_replace must be a single numeric value or NULL")
+      }
+      if("Obs" %in% names(len_dt)) {
+        len_dt[is.na(Obs), Obs := 0]
+        len_dt[Obs == 0, Obs := zero_replace]
+      }
+    }
+    
+    # Ensure Bin is numeric
+    len_dt[, Bin := as.numeric(Bin)]
+    
+    # Calculate deviation
+    len_dt[, Dev := Obs - Exp]
+    
+    # Add standard columns
+    len_dt[, Used := "yes"]
+    len_dt[, Kind := "LEN"]
+    len_dt[, Sex := 1L]
+    if(!"Nsamp_in" %in% names(len_dt)) {
+      len_dt[, Nsamp_in := NA_real_]
+    }
+    len_dt[, effN := Nsamp_in]
+    len_dt[, Nsamp_adj := Nsamp_in]
+    
+    # Add fleet names
+    if(!is.null(fishery_names) && length(fishery_names) >= max(len_dt$Fleet)) {
+      len_dt[, Fleet_name := fishery_names[Fleet]]
+    } else {
+      len_dt[, Fleet_name := paste0("Fishery_", Fleet)]
+    }
+    
+    # Add model id
+    len_dt[, id := model_id]
+    
+    # Reorder columns
+    len_dt = len_dt[, .(id, Fleet, Fleet_name, year, month, ts, Used, Kind, Sex, Bin,
+                        Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj)]
+    
+    # Write CSV (optional)
+    if(save_csv) {
+      output_file = file.path(output_dir, "comp_len_time.csv")
+      if(verbose) message("Writing output to ", output_file)
+      data.table::fwrite(len_dt, output_file)
+    }
+    
+    return(len_dt)
   }
   
   # Step 3: Aggregate across time (convert to counts, sum, then back to proportions)

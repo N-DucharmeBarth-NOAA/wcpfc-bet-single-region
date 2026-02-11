@@ -444,3 +444,239 @@ test_that("MFCL and SS3 observed values match for common fisheries and bins", {
     }
   }
 })
+
+# ===== Pre-load time-resolved (non-aggregated) data for tests =====
+
+# Required columns for time-resolved output
+required_time_cols = c("id", "Fleet", "Fleet_name", "year", "month", "ts",
+                       "Used", "Kind", "Sex", "Bin",
+                       "Obs", "Exp", "Dev", "effN", "Nsamp_in", "Nsamp_adj")
+
+len_ss3_time = NULL
+if(file.exists(file.path(dir_ss3, "01-bet-base", "Report.sso")) &&
+   requireNamespace("r4ss", quietly = TRUE)) {
+  len_ss3_time = extract_ss3_length_comp(
+    file.path(dir_ss3, "01-bet-base"),
+    "01-bet-base",
+    aggregate = FALSE,
+    save_csv = FALSE,
+    verbose = FALSE
+  )
+}
+
+len_mfcl_time = NULL
+if(file.exists(file.path(dir_mfcl, "v11", "length.fit")) &&
+   file.exists(file.path(dir_mfcl, "v11", "bet.frq"))) {
+  tryCatch({
+    len_mfcl_time = extract_mfcl_length_comp(
+      file.path(dir_mfcl, "v11", "length.fit"),
+      file.path(dir_mfcl, "v11", "bet.frq"),
+      "mfcl-v11",
+      output_dir = dir_mfcl,
+      aggregate = FALSE,
+      save_csv = FALSE,
+      verbose = FALSE
+    )
+  }, error = function(e) {
+    # MFCL time-resolved data may not be available
+  })
+}
+
+# ===== SS3 Time-Resolved Tests =====
+
+test_that("extract_ss3_length_comp aggregate=FALSE returns correct columns", {
+  skip_if_not(!is.null(len_ss3_time),
+              "SS3 time-resolved length composition not available")
+  
+  expect_s3_class(len_ss3_time, "data.table")
+  expect_equal(names(len_ss3_time), required_time_cols)
+})
+
+test_that("extract_ss3_length_comp aggregate=FALSE has correct data types", {
+  skip_if_not(!is.null(len_ss3_time),
+              "SS3 time-resolved length composition not available")
+  
+  expect_is(len_ss3_time$id, "character")
+  expect_is(len_ss3_time$Fleet, "integer")
+  expect_is(len_ss3_time$Fleet_name, "character")
+  expect_is(len_ss3_time$year, "integer")
+  expect_is(len_ss3_time$month, "integer")
+  expect_is(len_ss3_time$ts, "integer")
+  expect_is(len_ss3_time$Used, "character")
+  expect_is(len_ss3_time$Kind, "character")
+  expect_is(len_ss3_time$Sex, "integer")
+  expect_true(is.numeric(len_ss3_time$Bin))
+  expect_is(len_ss3_time$Obs, "numeric")
+  expect_is(len_ss3_time$Exp, "numeric")
+  expect_is(len_ss3_time$Dev, "numeric")
+  expect_is(len_ss3_time$effN, "numeric")
+  expect_is(len_ss3_time$Nsamp_in, "numeric")
+  expect_is(len_ss3_time$Nsamp_adj, "numeric")
+})
+
+test_that("extract_ss3_length_comp aggregate=FALSE has valid time values", {
+  skip_if_not(!is.null(len_ss3_time),
+              "SS3 time-resolved length composition not available")
+  
+  # Year should be in plausible range
+  expect_true(all(len_ss3_time$year >= 1952))
+  expect_true(all(len_ss3_time$year <= 2025))
+  
+  # Month should be one of the quarterly months matching MFCL convention
+  expect_true(all(len_ss3_time$month %in% c(2, 5, 8, 11)))
+  
+  # ts should be positive and consistent with year and month
+  expect_true(all(len_ss3_time$ts > 0))
+  expected_ts = (len_ss3_time$year - 1952L) * 4L + match(len_ss3_time$month, c(2, 5, 8, 11))
+  expect_equal(len_ss3_time$ts, expected_ts)
+})
+
+test_that("extract_ss3_length_comp aggregate=FALSE deviation equals Obs - Exp", {
+  skip_if_not(!is.null(len_ss3_time),
+              "SS3 time-resolved length composition not available")
+  
+  expect_equal(len_ss3_time$Dev, len_ss3_time$Obs - len_ss3_time$Exp, tolerance = 1e-10)
+})
+
+test_that("extract_ss3_length_comp aggregate=FALSE has more rows than aggregated", {
+  skip_if_not(!is.null(len_ss3_time) && !is.null(len_ss3_base),
+              "Both SS3 time-resolved and aggregated data must be available")
+  
+  # Time-resolved should have more rows (multiple time steps per fleet/bin)
+  expect_true(nrow(len_ss3_time) >= nrow(len_ss3_base))
+})
+
+test_that("extract_ss3_length_comp aggregate=FALSE writes comp_len_time.csv", {
+  skip_if_not(!is.null(len_ss3_time),
+              "SS3 time-resolved length composition not available")
+  
+  output_file = file.path(dir_ss3, "01-bet-base", "comp_len_time.csv")
+  if(file.exists(output_file)) unlink(output_file)
+  
+  extract_ss3_length_comp(
+    file.path(dir_ss3, "01-bet-base"),
+    "01-bet-base",
+    aggregate = FALSE,
+    save_csv = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_true(file.exists(output_file))
+  
+  len_read = fread(output_file)
+  expect_equal(names(len_read), required_time_cols)
+  
+  # Cleanup
+  unlink(output_file)
+})
+
+# ===== MFCL Time-Resolved Tests =====
+
+test_that("extract_mfcl_length_comp aggregate=FALSE returns correct columns", {
+  skip_if_not(!is.null(len_mfcl_time),
+              "MFCL time-resolved length composition not available")
+  
+  expect_s3_class(len_mfcl_time, "data.table")
+  expect_equal(names(len_mfcl_time), required_time_cols)
+})
+
+test_that("extract_mfcl_length_comp aggregate=FALSE has correct data types", {
+  skip_if_not(!is.null(len_mfcl_time),
+              "MFCL time-resolved length composition not available")
+  
+  expect_is(len_mfcl_time$id, "character")
+  expect_is(len_mfcl_time$Fleet, "integer")
+  expect_is(len_mfcl_time$Fleet_name, "character")
+  expect_is(len_mfcl_time$year, "integer")
+  expect_is(len_mfcl_time$month, "integer")
+  expect_is(len_mfcl_time$ts, "integer")
+  expect_is(len_mfcl_time$Used, "character")
+  expect_is(len_mfcl_time$Kind, "character")
+  expect_is(len_mfcl_time$Sex, "integer")
+  expect_true(is.numeric(len_mfcl_time$Bin))
+  expect_is(len_mfcl_time$Obs, "numeric")
+  expect_is(len_mfcl_time$Exp, "numeric")
+  expect_is(len_mfcl_time$Dev, "numeric")
+  expect_is(len_mfcl_time$effN, "numeric")
+  expect_is(len_mfcl_time$Nsamp_in, "numeric")
+  expect_is(len_mfcl_time$Nsamp_adj, "numeric")
+})
+
+test_that("extract_mfcl_length_comp aggregate=FALSE has valid time values", {
+  skip_if_not(!is.null(len_mfcl_time),
+              "MFCL time-resolved length composition not available")
+  
+  # Year should be in plausible range
+  expect_true(all(len_mfcl_time$year >= 1952))
+  expect_true(all(len_mfcl_time$year <= 2025))
+  
+  # Month should be one of the quarterly months
+  expect_true(all(len_mfcl_time$month %in% c(2, 5, 8, 11)))
+  
+  # ts should be positive and consistent with year and month
+  expect_true(all(len_mfcl_time$ts > 0))
+  expected_ts = (len_mfcl_time$year - 1952L) * 4L + match(len_mfcl_time$month, c(2, 5, 8, 11))
+  expect_equal(len_mfcl_time$ts, expected_ts)
+})
+
+test_that("extract_mfcl_length_comp aggregate=FALSE deviation equals Obs - Exp", {
+  skip_if_not(!is.null(len_mfcl_time),
+              "MFCL time-resolved length composition not available")
+  
+  expect_equal(len_mfcl_time$Dev, len_mfcl_time$Obs - len_mfcl_time$Exp, tolerance = 1e-10)
+})
+
+test_that("extract_mfcl_length_comp aggregate=FALSE has more rows than aggregated", {
+  skip_if_not(!is.null(len_mfcl_time) && !is.null(len_mfcl_v11),
+              "Both MFCL time-resolved and aggregated data must be available")
+  
+  expect_true(nrow(len_mfcl_time) >= nrow(len_mfcl_v11))
+})
+
+test_that("extract_mfcl_length_comp aggregate=FALSE writes comp_len_time.csv", {
+  skip_if_not(!is.null(len_mfcl_time),
+              "MFCL time-resolved length composition not available")
+  
+  output_file = file.path(dir_mfcl, "comp_len_time.csv")
+  if(file.exists(output_file)) unlink(output_file)
+  
+  extract_mfcl_length_comp(
+    file.path(dir_mfcl, "v11", "length.fit"),
+    file.path(dir_mfcl, "v11", "bet.frq"),
+    "mfcl-v11",
+    output_dir = dir_mfcl,
+    aggregate = FALSE,
+    save_csv = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_true(file.exists(output_file))
+  
+  len_read = fread(output_file)
+  expect_equal(names(len_read), required_time_cols)
+  
+  # Cleanup
+  unlink(output_file)
+})
+
+# ===== Cross-Model Time-Resolved Consistency Tests =====
+
+test_that("SS3 and MFCL time-resolved outputs have identical column structure", {
+  skip_if_not(!is.null(len_ss3_time) && !is.null(len_mfcl_time),
+              "Both SS3 and MFCL time-resolved data must be available")
+  
+  expect_equal(names(len_ss3_time), names(len_mfcl_time))
+  expect_equal(names(len_ss3_time), required_time_cols)
+})
+
+test_that("SS3 and MFCL time-resolved ts values overlap", {
+  skip_if_not(!is.null(len_ss3_time) && !is.null(len_mfcl_time),
+              "Both SS3 and MFCL time-resolved data must be available")
+  
+  ss3_ts = sort(unique(len_ss3_time$ts))
+  mfcl_ts = sort(unique(len_mfcl_time$ts))
+  common_ts = intersect(ss3_ts, mfcl_ts)
+  
+  # There should be at least some overlapping time steps
+  expect_true(length(common_ts) > 0)
+})

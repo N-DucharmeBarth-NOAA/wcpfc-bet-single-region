@@ -10,9 +10,13 @@
 #'   Only used if harmonize_bins = TRUE
 #' @param save_csv Logical. Save output as CSV file? Default TRUE
 #' @param verbose Logical. Print progress messages? Default TRUE
+#' @param aggregate Logical. Aggregate across time? Default TRUE. When FALSE,
+#'   returns per-observation data with year, month, and ts columns and saves
+#'   as comp_len_time.csv instead of comp_len.csv.
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
-#'   Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj
+#'   Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj. When aggregate = FALSE, also
+#'   includes year, month, and ts (quarterly time step from 1952 Q1).
 #' 
 #' @details
 #' Extracts length composition data from SS3 lendbase component and aggregates
@@ -49,7 +53,8 @@ extract_ss3_length_comp = function(model_dir, model_id,
                                    harmonize_bins = FALSE,
                                    target_bins = NULL,
                                    save_csv = TRUE,
-                                   verbose = TRUE) {
+                                   verbose = TRUE,
+                                   aggregate = TRUE) {
   
   # Check if Report.sso exists
   if(!file.exists(file.path(model_dir, "Report.sso"))) {
@@ -82,12 +87,63 @@ extract_ss3_length_comp = function(model_dir, model_id,
   
   # Step 3: Select relevant columns
   required_cols = c("Fleet", "Used", "Kind", "Sex", "Bin", "Obs", "Exp", "effN", "Nsamp_in", "Nsamp_adj")
+  time_cols = c("Yr", "Seas")
   missing_cols = setdiff(required_cols, names(len_dt))
   if(length(missing_cols) > 0) {
     stop(sprintf("Missing required columns in lendbase: %s", paste(missing_cols, collapse = ", ")))
   }
   
-  len_dt = len_dt[, .SD, .SDcols = required_cols]
+  keep_cols = c(required_cols, intersect(time_cols, names(len_dt)))
+  len_dt = len_dt[, .SD, .SDcols = keep_cols]
+  
+  # Step 3b: Return pre-aggregated (time-resolved) data if requested
+  if(!aggregate) {
+    if(harmonize_bins) {
+      warning("harmonize_bins is ignored when aggregate = FALSE")
+    }
+    
+    if(verbose) message("Returning pre-aggregated (time-resolved) length composition data")
+    
+    # Calculate year, month, ts from SS3 Yr column
+    # Yr is the sequential quarter index from 1952 Q1
+    # Derive year from Yr, then month from quarter within year
+    len_dt[, ts := as.integer(Yr)]
+    len_dt[, year := 1952L + (Yr - 1L) %/% 4L]
+    len_dt[, month := c(2L, 5L, 8L, 11L)[((Yr - 1L) %% 4L) + 1L]]
+    
+    # Drop SS3-specific time columns
+    len_dt[, c("Yr", "Seas") := NULL]
+    
+    # Calculate deviation
+    len_dt[, Dev := Obs - Exp]
+    
+    # Add fleet names
+    if(!is.null(tmp_flt) && "Fleet_name" %in% names(tmp_flt)) {
+      len_dt[, Fleet_name := tmp_flt$Fleet_name[Fleet]]
+    } else {
+      len_dt[, Fleet_name := paste0("Fleet_", Fleet)]
+    }
+    
+    # Add model id
+    len_dt[, id := model_id]
+    
+    # Reorder columns
+    len_dt = len_dt[, .(id, Fleet, Fleet_name, year, month, ts, Used, Kind, Sex, Bin,
+                        Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj)]
+    
+    # Write CSV (optional)
+    if(save_csv) {
+      output_file = file.path(model_dir, "comp_len_time.csv")
+      if(verbose) message("Writing output to ", output_file)
+      data.table::fwrite(len_dt, output_file)
+    }
+    
+    return(len_dt)
+  }
+  
+  # Drop time columns before aggregation
+  drop_cols = intersect(time_cols, names(len_dt))
+  if(length(drop_cols) > 0) len_dt[, (drop_cols) := NULL]
   
   # Step 4: Aggregate across time (convert to counts, sum, then back to proportions)
   if(verbose) message("Aggregating length composition data across time")
