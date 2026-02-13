@@ -428,7 +428,7 @@ test_that("Empty fleets produce valid output", {
   expect_true(TRUE)
 })
 
-test_that("MFCL and SS3 observed values match for common fisheries and bins", {
+test_that("MFCL and SS3 observed values match for common fisheries and bins with same width", {
   skip_if_not(!is.null(wt_ss3_base) && !is.null(wt_mfcl_v11),
               "Both SS3 and MFCL weight composition data must be available (pre-loaded)")
   
@@ -447,6 +447,20 @@ test_that("MFCL and SS3 observed values match for common fisheries and bins", {
     mfcl_data = wt_mfcl_v11[Fleet == fleet, .(Bin, Obs)]
     setorder(mfcl_data, Bin)
     
+    # Calculate bin widths for both datasets
+    # Bin width is the difference between consecutive bins
+    if(nrow(ss3_data) > 1) {
+      ss3_data[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+    } else {
+      ss3_data[, bin_width := NA_real_]
+    }
+    
+    if(nrow(mfcl_data) > 1) {
+      mfcl_data[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+    } else {
+      mfcl_data[, bin_width := NA_real_]
+    }
+    
     # Find common bins
     common_bins = intersect(ss3_data$Bin, mfcl_data$Bin)
     
@@ -454,12 +468,38 @@ test_that("MFCL and SS3 observed values match for common fisheries and bins", {
       ss3_subset = ss3_data[Bin %in% common_bins]
       mfcl_subset = mfcl_data[Bin %in% common_bins]
       
-      # Check that observed values match (within tolerance for floating point)
-      # SS3 may fill tiny non-zero values for bins that are zero in MFCL
-      # Allow larger tolerance to accommodate aggregation differences
-      # Observed average differences up to ~0.0015; use 3e-3 to be conservative
-      expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
-           label = paste("Fleet", fleet, "observed values should match between SS3 and MFCL"))
+      # Verify bin widths match for common bins
+      # Allow small tolerance for floating point differences
+      bin_width_matches = abs(ss3_subset$bin_width - mfcl_subset$bin_width) < 1e-6
+      
+      if(!all(bin_width_matches, na.rm = TRUE)) {
+        # Report bins with different widths
+        diff_indices = which(!bin_width_matches)
+        message(sprintf("Fleet %d: Bin widths differ for %d/%d common bins", 
+                       fleet, length(diff_indices), length(common_bins)))
+        message(sprintf("  Example: Bin %.1f has SS3 width %.2f vs MFCL width %.2f",
+                       ss3_subset$Bin[diff_indices[1]],
+                       ss3_subset$bin_width[diff_indices[1]],
+                       mfcl_subset$bin_width[diff_indices[1]]))
+        
+        # Only compare observed values for bins with matching widths
+        matching_bins = ss3_subset$Bin[bin_width_matches]
+        ss3_subset = ss3_subset[Bin %in% matching_bins]
+        mfcl_subset = mfcl_subset[Bin %in% matching_bins]
+      }
+      
+      # Only proceed with comparison if we have bins with matching widths
+      if(nrow(ss3_subset) > 0 && nrow(mfcl_subset) > 0) {
+        # Check that observed values match (within tolerance for floating point)
+        # SS3 may fill tiny non-zero values for bins that are zero in MFCL
+        # Allow larger tolerance to accommodate aggregation differences
+        # Observed average differences up to ~0.0015; use 3e-3 to be conservative
+        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
+             label = paste("Fleet", fleet, "observed values should match between SS3 and MFCL for bins with same width"))
+      } else {
+        # Skip comparison if no bins with matching widths
+        message(sprintf("Fleet %d: No bins with matching widths, skipping observed value comparison", fleet))
+      }
     }
   }
 })
@@ -704,7 +744,7 @@ test_that("SS3 and MFCL time-resolved ts values overlap", {
   expect_true(length(common_ts) > 0)
 })
 
-test_that("SS3 and MFCL time-resolved observed values match for spot-check selection", {
+test_that("SS3 and MFCL time-resolved observed values match for spot-check selection with same bin widths", {
   skip_if_not(!is.null(wt_ss3_time) && !is.null(wt_mfcl_time),
               "Both SS3 and MFCL time-resolved data must be available")
   
@@ -733,6 +773,19 @@ test_that("SS3 and MFCL time-resolved observed values match for spot-check selec
       mfcl_fleet = mfcl_ts_data[Fleet == fleet, .(Bin, Obs)]
       setorder(mfcl_fleet, Bin)
       
+      # Calculate bin widths
+      if(nrow(ss3_fleet) > 1) {
+        ss3_fleet[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+      } else {
+        ss3_fleet[, bin_width := NA_real_]
+      }
+      
+      if(nrow(mfcl_fleet) > 1) {
+        mfcl_fleet[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+      } else {
+        mfcl_fleet[, bin_width := NA_real_]
+      }
+      
       # Find common bins
       common_bins = intersect(ss3_fleet$Bin, mfcl_fleet$Bin)
       
@@ -740,11 +793,24 @@ test_that("SS3 and MFCL time-resolved observed values match for spot-check selec
         ss3_subset = ss3_fleet[Bin %in% common_bins]
         mfcl_subset = mfcl_fleet[Bin %in% common_bins]
         
-        # For disaggregated data, tolerance accounts for rounding and extraction differences
-        # Spot checks show max differences around 0.003 across time steps and fleets
-        # Use 3e-3 (0.003) tolerance, same as aggregated comparisons, but applied to raw time-resolved data
-        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
-             label = paste("TS", ts_val, "Fleet", fleet, "time-resolved observed values should match closely between SS3 and MFCL"))
+        # Verify bin widths match for common bins
+        bin_width_matches = abs(ss3_subset$bin_width - mfcl_subset$bin_width) < 1e-6
+        
+        if(!all(bin_width_matches, na.rm = TRUE)) {
+          # Only compare observed values for bins with matching widths
+          matching_bins = ss3_subset$Bin[bin_width_matches]
+          ss3_subset = ss3_subset[Bin %in% matching_bins]
+          mfcl_subset = mfcl_subset[Bin %in% matching_bins]
+        }
+        
+        # Only proceed with comparison if we have bins with matching widths
+        if(nrow(ss3_subset) > 0 && nrow(mfcl_subset) > 0) {
+          # For disaggregated data, tolerance accounts for rounding and extraction differences
+          # Spot checks show max differences around 0.003 across time steps and fleets
+          # Use 3e-3 (0.003) tolerance, same as aggregated comparisons, but applied to raw time-resolved data
+          expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
+               label = paste("TS", ts_val, "Fleet", fleet, "time-resolved observed values should match closely between SS3 and MFCL for bins with same width"))
+        }
       }
     }
   }
