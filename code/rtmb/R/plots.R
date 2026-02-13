@@ -18,44 +18,46 @@
 #' 
 plot_catch <- function(data, object, posterior = NULL, proj = NULL, probs = c(0.05, 0.95), plot_resid = FALSE) {
   
-  yrs1 <- data$first_yr:data$last_yr
-  yrs2 <- data$first_yr_catch:data$last_yr
-  fsh <- c("LL1", "LL2", "LL3", "LL4", "Indonesia", "Australia")
+  yrs1 <- data$years
+  # yrs2 <- data$first_yr_catch:data$last_yr
+  # fsh <- c("LL1", "LL2", "LL3", "LL4", "Indonesia", "Australia")
+  fsh <- paste0("Fishery: ", 1:data$n_fishery)
   
   df_obs <- melt(data$catch_obs_ysf, value.name = "obs") %>%
     filter(.data$obs > 0) %>%
-    mutate(Season = paste("Season:", .data$Season), Type = "Observed")
+    mutate(season = paste("Season:", .data$season), fishery = fsh[.data$fishery], Type = "Observed")
 
-  if (!is.null(proj)) {
-    df_proj <- melt(proj, value.name = "obs") %>%
-      filter(.data$obs > 0) %>%
-      mutate(Season = paste("Season:", .data$Season), Type = "Projected")
-    df_obs <- bind_rows(df_obs, df_proj)
-  }
+  # if (!is.null(proj)) {
+  #   df_proj <- melt(proj, value.name = "obs") %>%
+  #     filter(.data$obs > 0) %>%
+  #     mutate(Season = paste("Season:", .data$Season), Type = "Projected")
+  #   df_obs <- bind_rows(df_obs, df_proj)
+  # }
   
   df_pred <- object$report()$catch_pred_ysf %>%
     melt(value.name = "pred") %>%
-    mutate(Year = yrs1[.data$Var1], Season = paste("Season:", .data$Var2), Fishery = fsh[.data$Var3]) %>%
-    right_join(df_obs, by = join_by("Year", "Season", "Fishery")) %>%
-    mutate(Fishery = factor(.data$Fishery, levels = fsh)) %>%
+    mutate(year = yrs1[.data$Var1], season = paste("Season:", .data$Var2), fishery = fsh[.data$Var3]) %>%
+    right_join(df_obs, by = join_by("year", "season", "fishery")) %>%
+    mutate(Fishery = factor(.data$fishery, levels = fsh)) %>%
     mutate(resid = .data$obs - .data$pred)
   
   print(paste0("The maximum catch difference was: ", max(df_pred$resid)))
   
   if (plot_resid) {
-    p <- ggplot(data = df_pred, aes(x = .data$Year, y = .data$resid)) +
+    p <- ggplot(data = df_pred, aes(x = .data$year, y = .data$resid)) +
       geom_point(color = "red") +
       labs(x = "Year", y = "Catch residual (tonnes)")
   } else {
-    p <- ggplot(data = df_pred, aes(x = .data$Year, y = .data$obs / 1000)) +
+    p <- ggplot(data = df_pred, aes(x = .data$year, y = .data$obs)) +
       geom_point(aes(color = .data$Type)) +
-      geom_line(aes(y = .data$pred / 1000)) +
-      labs(x = "Year", y = "Catch (thousands of tonnes)", color = NULL) +
+      # geom_point(aes(y = .data$pred), shape = 16) +
+      geom_line(aes(y = .data$pred), group = 1) +
+      labs(x = "Year", y = "Catch (tonnes)", color = NULL) +
       scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
   }
   
   p <- p + 
-    facet_wrap(Fishery ~ Season, scales = "free_y") +
+    facet_wrap(fishery ~ season, scales = "free_y") +
     scale_x_continuous(breaks = breaks_pretty())
   
   return(p)
@@ -353,45 +355,49 @@ plot_cpue_lf <- function(data, object, posterior = NULL, probs = c(0.025, 0.975)
 #' 
 plot_cpue <- function(data, object, posterior = NULL, probs = c(0.025, 0.975), nsim = 10) {
   
-  yrs <- data$cpue_year + data$first_yr
+  rep <- object$report(object$env$last.par.best)
   
-  df_mle <- data.frame(year = yrs, obs = data$cpue_obs, pred = object$report()$cpue_pred, 
-                       sigma = sqrt(data$cpue_sd^2 + object$report()$cpue_sigma^2))
+  df_mle <- data$cpue_data %>%
+    mutate(pred = rep$cpue_pred, sigma = rep$cpue_sigma)
+  
+  # data.frame(year = yrs, obs = data$cpue_obs, pred = object$report()$cpue_pred, 
+  #                      sigma = sqrt(data$cpue_sd^2 + object$report()$cpue_sigma^2))
 
-  mat_sim <- matrix(NA, nrow = nrow(df_mle), ncol = nsim)
-  for (i in seq_len(nsim)) mat_sim[,i] <- exp(obj$simulate()$cpue_log_obs)
-  df_sim <- bind_cols(df_mle, as.data.frame(mat_sim)) %>%
-    pivot_longer(cols = -names(df_mle), names_to = "iter", values_to = "sim")
+  # mat_sim <- matrix(NA, nrow = nrow(df_mle), ncol = nsim)
+  # for (i in seq_len(nsim)) mat_sim[,i] <- exp(obj$simulate()$cpue_log_obs)
+  # df_sim <- bind_cols(df_mle, as.data.frame(mat_sim)) %>%
+  #   pivot_longer(cols = -names(df_mle), names_to = "iter", values_to = "sim")
   
-  p <- ggplot(data = df_mle, aes(x = .data$year, y = .data$obs)) +
-    geom_line(data = df_sim, aes(y = .data$sim, group = .data$iter, color = "Simulated"), alpha = 0.5) +
+  p <- ggplot(data = df_mle, aes(x = .data$year, y = .data$value)) +
+    # geom_line(data = df_sim, aes(y = .data$sim, group = .data$iter, color = "Simulated"), alpha = 0.5) +
     geom_point(aes(color = "Observed")) +
-    geom_linerange(aes(ymin = exp(log(.data$obs) - .data$sigma), ymax = exp(log(.data$obs) + .data$sigma), color = "Observed")) +
+    geom_linerange(aes(ymin = exp(log(.data$value) - .data$sigma), ymax = exp(log(.data$value) + .data$sigma), color = "Observed")) +
     geom_line(aes(y = .data$pred, color = "Predicted")) +
     labs(x = "Year", y = "CPUE", color = NULL) +
     scale_x_continuous(breaks = pretty_breaks()) +
-    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+    facet_wrap(season ~ fishery)
   
-  if (!is.null(posterior)) {
-    sigma <- get_posterior(object = object, posterior = posterior, pars = "cpue_sigma")
-    df_mcmc <- get_posterior(object = object, posterior = posterior, pars = "cpue_pred") %>%
-      mutate(year = yrs[id]) %>%
-      rename(pred = value) %>% 
-      left_join(sigma, by = join_by("chain", "iter")) %>%
-      rowwise() %>%
-      mutate(ppred = rlnorm(n = 1, meanlog = log(.data$pred), sdlog = value))
-    # df_ppred <- mapply(rlnorm, n = 1, meanlog = log(df_pred$pred), sdlog = df_pred$value)
-    # df_mcmc <- df_pred %>% mutate(ppred = df_ppred)
-    
-    p <- p + 
-      stat_summary(data = df_mcmc, geom = "ribbon", alpha = 0.5, aes(y = .data$ppred),
-                   fun.min = function(x) quantile(x, probs = probs[1]),
-                   fun.max = function(x) quantile(x, probs = probs[2])) +
-      stat_summary(data = df_mcmc, geom = "ribbon", alpha = 0.5, aes(y = .data$pred),
-                   fun.min = function(x) quantile(x, probs = probs[1]),
-                   fun.max = function(x) quantile(x, probs = probs[2])) +
-      stat_summary(data = df_mcmc, aes(y = .data$pred), geom = "line", fun = median)
-  }
+  # if (!is.null(posterior)) {
+  #   sigma <- get_posterior(object = object, posterior = posterior, pars = "cpue_sigma")
+  #   df_mcmc <- get_posterior(object = object, posterior = posterior, pars = "cpue_pred") %>%
+  #     mutate(year = yrs[id]) %>%
+  #     rename(pred = value) %>% 
+  #     left_join(sigma, by = join_by("chain", "iter")) %>%
+  #     rowwise() %>%
+  #     mutate(ppred = rlnorm(n = 1, meanlog = log(.data$pred), sdlog = value))
+  #   # df_ppred <- mapply(rlnorm, n = 1, meanlog = log(df_pred$pred), sdlog = df_pred$value)
+  #   # df_mcmc <- df_pred %>% mutate(ppred = df_ppred)
+  #   
+  #   p <- p + 
+  #     stat_summary(data = df_mcmc, geom = "ribbon", alpha = 0.5, aes(y = .data$ppred),
+  #                  fun.min = function(x) quantile(x, probs = probs[1]),
+  #                  fun.max = function(x) quantile(x, probs = probs[2])) +
+  #     stat_summary(data = df_mcmc, geom = "ribbon", alpha = 0.5, aes(y = .data$pred),
+  #                  fun.min = function(x) quantile(x, probs = probs[1]),
+  #                  fun.max = function(x) quantile(x, probs = probs[2])) +
+  #     stat_summary(data = df_mcmc, aes(y = .data$pred), geom = "line", fun = median)
+  # }
   
   return(p)
 }
