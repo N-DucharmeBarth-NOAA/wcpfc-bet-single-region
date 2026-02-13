@@ -12,13 +12,9 @@
 [![R-CMD-check](https://github.com/quantifish/sbt/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/quantifish/sbt/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-**Southern bluefin roam,**  
-**Data rich as ocean tides—**  
-**Code unlocks their truth.**
-
 ## Introduction
 
-The R package `sbt` was developed for doing stock assessments of
+The R package `bet` was developed for doing stock assessments of
 southern bluefin tuna (SBT) for the Commission for the Conservation of
 Southern Bluefin Tuna (CCSBT).
 

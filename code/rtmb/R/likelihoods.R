@@ -1,3 +1,51 @@
+#' CPUE index likelihood
+#'
+#' Computes the likelihood for a standardized CPUE index using a log-linear model.
+#'
+#' @param data Integer switch to activate the likelihood.
+#' @param parameters a \code{vector} of year indices for CPUE observations.
+#' @param number_ysa a 3D \code{array} year, season, age of numbers-at-age.
+#' @param sel_fya a 3D \code{array} of selectivity by fishery, year, and age.
+#' @return a \code{list} with predicted CPUE, residuals, and likelihood vector.
+#' @importFrom RTMB ADoverload dnorm
+#' @export
+#' 
+get_cpue_like <- function(data, parameters, number_ysa, sel_fya, creep_init = 1) {
+  "[<-" <- ADoverload("[<-")
+  "c" <- ADoverload("c")
+  getAll(data, parameters, warn = FALSE)
+  cpue_tau <- exp(log_cpue_tau)
+  cpue_omega <- exp(log_cpue_omega)
+  n_cpue <- nrow(cpue_data)
+  cpue_adjust <- cpue_log_pred <- lp <- numeric(n_cpue)
+  cpue_adjust[1] <- creep_init
+  for (i in 2:n_cpue) cpue_adjust[i] <- cpue_adjust[i - 1] + cpue_creep
+  cpue_sigma <- sqrt(cpue_data$se^2 + cpue_tau^2)
+  for (i in seq_len(n_cpue)) {
+    y <- cpue_data$year[i] - first_yr + 1
+    s <- cpue_data$season[i]
+    f <- cpue_data$fishery[i]
+    cpue_n <- number_ysa[y, s,] * sel_fya[f, y,]
+    if (cpue_data$units[i] > 1) cpue_n <- cpue_n * weight_fya[f, y,]
+    sum_n <- sum(cpue_n) + 1e-6
+    cpue_log_pred[i] <- log(cpue_adjust[i]) + cpue_omega * log(sum_n)
+  }
+  unscaled_pred <- cpue_log_pred
+  cpue_log_pred <- cpue_log_pred - log(mean(exp(cpue_log_pred))) + log_cpue_q
+  cpue_log_obs <- log(cpue_data$value)
+  cpue_log_obs <- OBS(cpue_log_obs)
+  if (cpue_switch > 0) {
+    lp[] <- -dnorm(x = cpue_log_obs, mean = cpue_log_pred, sd = cpue_sigma, log = TRUE)
+  }
+  cpue_pred <- exp(cpue_log_pred)
+  REPORT(cpue_pred)
+  REPORT(cpue_sigma)
+  return(list(#pred = exp(cpue_log_pred), 
+              # sigma = cpue_sig, 
+              cpue_adjust = cpue_adjust, 
+              cpue_unscaled = exp(unscaled_pred), 
+              lp = lp))
+}
 
 #' Length Composition Likelihood
 #'
@@ -132,60 +180,4 @@ get_cpue_length_like <- function(lf_switch = 1, cpue_years, cpue_lfs, cpue_n, pa
     }
   }
   return(list(pred = lf_pred, lp = lp))
-}
-
-#' CPUE index likelihood
-#'
-#' Computes the likelihood for a standardized CPUE index using a log-linear model.
-#'
-#' @param cpue_switch Integer switch to activate the likelihood.
-#' @param cpue_a1,cpue_a2 Minimum and maximum CPUE age indices.
-#' @param cpue_years a \code{vector} of year indices for CPUE observations.
-#' @param cpue_obs a \code{vector} of observed CPUE values.
-#' @param cpue_sd a \code{vector} of SDs associated with the observed CPUE values.
-#' @param cpue_sigma Process error standard deviation.
-#' @param cpue_omega Power parameter for scaling to total numbers.
-#' @param log_cpue_q Logarithm of catchability coefficient.
-#' @param cpue_creep Logarithm of catchability coefficient.
-#' @param number_ysa a 3D \code{array} year, season, age of numbers-at-age.
-#' @param sel_fya a 3D \code{array} of selectivity by fishery, year, and age.
-#' @return a \code{list} with predicted CPUE, residuals, and likelihood vector.
-#' @importFrom RTMB ADoverload dnorm
-#' @export
-#' 
-get_cpue_like <- function(cpue_switch = 1, cpue_a1 = 5, cpue_a2 = 17, 
-                          cpue_years, cpue_obs, cpue_sd, 
-                          cpue_sigma = 0.2, cpue_omega = 1, log_cpue_q = -0.02040606, 
-                          creep_init = 1, cpue_creep = 0.005, 
-                          number_ysa, sel_fya) {
-  "[<-" <- ADoverload("[<-")
-  "c" <- ADoverload("c")
-  n_cpue <- length(cpue_obs)
-  n_age <- dim(sel_fya)[3]
-  cpue_adjust <- cpue_log_pred <- lp <- numeric(n_cpue)
-  cpue_adjust[1] <- creep_init
-  for (i in 2:n_cpue) cpue_adjust[i] <- cpue_adjust[i - 1] + cpue_creep
-  cpue_sig <- sqrt(cpue_sd^2 + cpue_sigma^2)
-  for (i in seq_len(n_cpue)) {
-    y <- cpue_years[i]
-    cpue_sel <- sel_fya[7, y, 5:n_age] # age 4+
-    cpue_n <- number_ysa[y, 2, 5:n_age] # season 2
-    cpue_selm <- sel_fya[7, y, (cpue_a1 + 1):(cpue_a2 + 1)]
-    tmpN <- sum(cpue_sel * cpue_n) / mean(cpue_selm)
-    cpue_log_pred[i] <- log(cpue_adjust[i]) + cpue_omega * log(tmpN)
-  }
-  unscaled_pred <- cpue_log_pred
-  cpue_log_pred <- cpue_log_pred - log(mean(exp(cpue_log_pred))) + log_cpue_q
-  cpue_log_obs <- log(cpue_obs)
-  cpue_log_obs <- OBS(cpue_log_obs)
-  # cpue_resid <- (log(cpue_obs) - cpue_log_pred) / cpue_sig
-  if (cpue_switch > 0) {
-    lp[] <- -dnorm(x = cpue_log_obs, mean = cpue_log_pred, sd = cpue_sig, log = TRUE)
-  }
-  return(list(pred = exp(cpue_log_pred), 
-              # resid = cpue_resid, # drop resid?
-              # sigma = cpue_sig, 
-              cpue_adjust = cpue_adjust, 
-              unscaled_pred = exp(unscaled_pred), 
-              lp = lp))
 }

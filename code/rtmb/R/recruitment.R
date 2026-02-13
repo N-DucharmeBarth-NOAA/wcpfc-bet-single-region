@@ -4,26 +4,25 @@
 #'
 #' @param first_yr First model year.
 #' @param last_yr Last model year.
-#' @param rdev Vector of recruitment deviations.
+#' @param rdev_y Vector of recruitment deviations.
 #' @return Estimated autocorrelation.
 #' @export
 #' @examples
 #' first_yr <- 1931
 #' last_yr <- 2022
 #' N <- length(first_yr:last_yr)
-#' rdev <- arima.sim(list(order = c(1, 0, 0), ar = 0.5), n = N)
-#' get_rho(first_yr, last_yr, rdev)
+#' rdev_y <- arima.sim(list(order = c(1, 0, 0), ar = 0.5), n = N)
+#' get_rho(first_yr, last_yr, rdev_y)
 #' 
-get_rho <- function(first_yr = 1931, last_yr = 2022, rdev) {
+get_rho <- function(first_yr = 1931, last_yr = 2022, rdev_y) {
   "[<-" <- ADoverload("[<-")
   # Model years: 1931-2022; Rec years: 1932-2023; n_years = n_recs: 92
   i1 <- 1965 - first_yr # int i1 = 1965 but don't add 1 because years are offset (see above)
   i2 <- last_yr - first_yr - 5
-  t1 <- rdev[i1:(i2 - 1)]
-  t2 <- rdev[(i1 + 1):i2]
+  t1 <- rdev_y[i1:(i2 - 1)]
+  t2 <- rdev_y[(i1 + 1):i2]
   t1m <- mean(t1)
   t2m <- mean(t2)
-  # phi = mean(elem_prod( ++Reps(i1,i2-1)-mean1,Reps(i1+1,i2)-mean2)) / (sqrt(mean(square(Reps(i1,i2-1)-mean1))) *sqrt(mean(square(Reps(i1+1,i2)-mean2)))  );
   phi <- sum((t1 - t1m) * (t2 - t2m)) / (sqrt(sum((t1 - t1m)^2)) * sqrt(sum((t2 - t2m)^2)))
   # phi <- cor(t1, t2) # same as above
   return(phi)
@@ -40,9 +39,10 @@ get_rho <- function(first_yr = 1931, last_yr = 2022, rdev) {
 #' @importFrom RTMB dnorm dautoreg
 #' @export
 #'
-get_recruitment_prior <- function(rdev, sigma, phi) {
+get_recruitment_prior <- function(rdev, log_sigma, phi) {
   "[<-" <- ADoverload("[<-")
   n_year <- length(rdev)
+  sigma <- exp(log_sigma)
   r1 <- rdev[1:(n_year - 3)]
   r2 <- rdev[(n_year - 2):n_year]
   # lp <- n_year * log(sigma) + 0.5 * sum(r1^2) / sigma^2 + 0.5 * sum(r2^2) / (sigma^2 * (1 - phi^2))
@@ -66,7 +66,7 @@ get_recruitment_prior <- function(rdev, sigma, phi) {
 #' @return Recruitment value (numeric).
 #' @export
 #' 
-get_recruitment <- function(sbio, rdev, B0, alpha, beta, sigma_r = 0.6, sr_dep = 1e-10) {
+get_recruitment <- function(sbio, rdev, B0, alpha, beta, sigma_r = 0.6, sr_dep = 0) {
   "[<-" <- ADoverload("[<-")
   rec <- (alpha * sbio) / (beta + sbio) * (1 - exp(log(0.5) * sbio / (sr_dep * B0))) * exp(rdev - 0.5 * sigma_r^2)
   return(rec)
