@@ -13,6 +13,12 @@
 #' @param aggregate Logical. Aggregate across time? Default TRUE. When FALSE,
 #'   returns per-observation data with year, month, and ts columns and saves
 #'   as comp_len_time.csv instead of comp_len.csv.
+#' @param back_transform Logical. Undo SS3 internal addtocomp and variance
+#'   adjustment transformations so that Obs/Exp are on the original input
+#'   proportion scale and Nsamp_in reflects the original sample size from
+#'   data.ss? Default TRUE. Nsamp_adj is left as SS3 reported it (the model's
+#'   intentional weighting). Reads data.ss and control.ss via r4ss to obtain
+#'   addtocomp per fleet from len_info and Factor 4 (mult_by_lencomp) per fleet.
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
 #'   Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj. When aggregate = FALSE, also
@@ -25,10 +31,17 @@
 #'
 #' @examples
 #' \dontrun{
-#'   # Without bin harmonization
+#'   # Without bin harmonization (back-transforms SS3 adjustments by default)
 #'   len_comp = extract_ss3_length_comp(
 #'     model_dir = "model-files/ss3/01-bet-base",
 #'     model_id = "01-bet-base"
+#'   )
+#'   
+#'   # Keep SS3 Report.sso values as-is (no back-transform)
+#'   len_comp = extract_ss3_length_comp(
+#'     model_dir = "model-files/ss3/01-bet-base",
+#'     model_id = "01-bet-base",
+#'     back_transform = FALSE
 #'   )
 #'   
 #'   # With bin harmonization to 5cm bins
@@ -54,7 +67,8 @@ extract_ss3_length_comp = function(model_dir, model_id,
                                    target_bins = NULL,
                                    save_csv = TRUE,
                                    verbose = TRUE,
-                                   aggregate = TRUE) {
+                                   aggregate = TRUE,
+                                   back_transform = TRUE) {
   
   # Check if Report.sso exists
   if(!file.exists(file.path(model_dir, "Report.sso"))) {
@@ -84,6 +98,69 @@ extract_ss3_length_comp = function(model_dir, model_id,
   }
   
   len_dt = data.table::as.data.table(tmp_report$lendbase)
+  
+  # Step 2b: Back-transform SS3 internal addtocomp and variance adjustments
+  # SS3 adds addtocomp (from len_info) to each bin proportion and renormalizes,
+  # and multiplies Nsamp by Factor 4 (mult_by_lencomp). Undoing these makes
+  # Obs/Exp match the original input proportions and Nsamp match the input
+  # sample sizes, consistent with MFCL extractor output.
+  if(back_transform) {
+    if(verbose) message("Back-transforming SS3 addtocomp and variance adjustments")
+    
+    # Read data.ss for len_info (addtocomp per fleet) and N_lbins
+    tmp_starter = r4ss::SS_readstarter(file.path(model_dir, "starter.ss"),
+                                       verbose = FALSE)
+    tmp_dat = r4ss::SS_readdat(file.path(model_dir, tmp_starter$datfile),
+                               verbose = FALSE)
+    
+    # Read control.ss for variance adjustment Factor 4 per fleet
+    tmp_ctl = r4ss::SS_readctl(file.path(model_dir, tmp_starter$ctlfile),
+                               use_datlist = TRUE, datlist = tmp_dat,
+                               verbose = FALSE)
+    
+    # Get Factor 4 (mult_by_lencomp) for each fleet
+    var_adj_dt = NULL
+    if(!is.null(tmp_ctl$Variance_adjustment_list)) {
+      var_adj_all = data.table::as.data.table(tmp_ctl$Variance_adjustment_list)
+      var_adj_dt = var_adj_all[factor == 4]  # Factor 4 = mult_by_lencomp
+    }
+    
+    # Get addtocomp per fleet and number of length bins
+    len_info = tmp_dat$len_info
+    n_lbins = tmp_dat$N_lbins
+    
+    # Undo addtocomp per fleet
+    for(flt in unique(len_dt$Fleet)) {
+      addtocomp = len_info$addtocomp[flt]
+      if(!is.na(addtocomp) && addtocomp > 0) {
+        idx = which(len_dt$Fleet == flt)
+        scaling = 1 + n_lbins * addtocomp
+        len_dt$Obs[idx] = len_dt$Obs[idx] * scaling - addtocomp
+        len_dt$Exp[idx] = len_dt$Exp[idx] * scaling - addtocomp
+        # Clamp to zero (floating point)
+        len_dt$Obs[idx] = pmax(len_dt$Obs[idx], 0)
+        len_dt$Exp[idx] = pmax(len_dt$Exp[idx], 0)
+      }
+    }
+    
+    # Undo variance adjustment on Nsamp_in only
+    # Nsamp_adj is left as SS3 reported it — it reflects the model's
+    # intentional weighting and should not be back-transformed.
+    if(!is.null(var_adj_dt) && nrow(var_adj_dt) > 0) {
+      for(i in seq_len(nrow(var_adj_dt))) {
+        flt = var_adj_dt$fleet[i]
+        va = var_adj_dt$value[i]
+        if(va > 0) {
+          idx = which(len_dt$Fleet == flt)
+          if(length(idx) > 0) {
+            len_dt$Nsamp_in[idx] = len_dt$Nsamp_in[idx] / va
+          }
+        }
+      }
+    }
+    
+    if(verbose) message("  Back-transform complete")
+  }
   
   # Step 3: Select relevant columns
   required_cols = c("Fleet", "Used", "Kind", "Sex", "Bin", "Obs", "Exp", "effN", "Nsamp_in", "Nsamp_adj")

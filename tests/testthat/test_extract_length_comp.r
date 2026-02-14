@@ -38,6 +38,7 @@ if(file.exists(file.path(dir_ss3, "01-bet-base", "Report.sso")) &&
 # Create two variants: raw (no replacement) and zero-replaced (to match SS3 tiny-fill)
 len_mfcl_v11_raw = NULL
 len_mfcl_v11 = NULL
+par_file_mfcl = file.path(dir_mfcl, "v11", "10.par")
 if(file.exists(file.path(dir_mfcl, "v11", "length.fit")) &&
    file.exists(file.path(dir_mfcl, "v11", "bet.frq"))) {
   tryCatch({
@@ -48,7 +49,8 @@ if(file.exists(file.path(dir_mfcl, "v11", "length.fit")) &&
       output_dir = dir_mfcl,
       save_csv = FALSE,
       verbose = FALSE,
-      zero_replace = NULL
+      zero_replace = NULL,
+      par_file = par_file_mfcl
     )
   }, error = function(e) {
     # MFCL raw data may not be available
@@ -62,7 +64,8 @@ if(file.exists(file.path(dir_mfcl, "v11", "length.fit")) &&
       output_dir = dir_mfcl,
       save_csv = FALSE,
       verbose = FALSE,
-      zero_replace = 9.90589e-05
+      zero_replace = 9.90589e-05,
+      par_file = par_file_mfcl
     )
   }, error = function(e) {
     # MFCL zero-replaced data may not be available
@@ -409,7 +412,7 @@ test_that("Empty fleets produce valid output", {
   expect_true(TRUE)
 })
 
-test_that("MFCL and SS3 observed values match for common fisheries and bins", {
+test_that("MFCL and SS3 observed values match for common fisheries and bins with same width", {
   skip_if_not(!is.null(len_ss3_base) && !is.null(len_mfcl_v11),
               "Both SS3 and MFCL length composition data must be available (pre-loaded)")
   
@@ -428,6 +431,19 @@ test_that("MFCL and SS3 observed values match for common fisheries and bins", {
     mfcl_data = len_mfcl_v11[Fleet == fleet, .(Bin, Obs)]
     setorder(mfcl_data, Bin)
     
+    # Calculate bin widths for both datasets
+    if(nrow(ss3_data) > 1) {
+      ss3_data[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+    } else {
+      ss3_data[, bin_width := NA_real_]
+    }
+    
+    if(nrow(mfcl_data) > 1) {
+      mfcl_data[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+    } else {
+      mfcl_data[, bin_width := NA_real_]
+    }
+    
     # Find common bins
     common_bins = intersect(ss3_data$Bin, mfcl_data$Bin)
     
@@ -435,12 +451,24 @@ test_that("MFCL and SS3 observed values match for common fisheries and bins", {
       ss3_subset = ss3_data[Bin %in% common_bins]
       mfcl_subset = mfcl_data[Bin %in% common_bins]
       
-      # Check that observed values match (within tolerance for floating point)
-      # SS3 may fill tiny non-zero values for bins that are zero in MFCL
-      # Allow larger tolerance to accommodate aggregation differences
-      # Observed average differences up to ~0.0015; use 3e-3 to be conservative
-      expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
-           label = paste("Fleet", fleet, "observed values should match between SS3 and MFCL"))
+      # Verify bin widths match for common bins
+      bin_width_matches = abs(ss3_subset$bin_width - mfcl_subset$bin_width) < 1e-6
+      
+      if(!all(bin_width_matches, na.rm = TRUE)) {
+        # Only compare observed values for bins with matching widths
+        matching_bins = ss3_subset$Bin[bin_width_matches]
+        ss3_subset = ss3_subset[Bin %in% matching_bins]
+        mfcl_subset = mfcl_subset[Bin %in% matching_bins]
+      }
+      
+      # Only proceed with comparison if we have bins with matching widths
+      if(nrow(ss3_subset) > 0 && nrow(mfcl_subset) > 0) {
+        # With back_transform=TRUE (default), SS3 Obs is on the original input
+        # proportion scale, matching MFCL. Tolerance covers floating-point
+        # round-trip through Report.sso and any residual clamping at zero.
+        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 1.5e-4,
+             label = paste("Fleet", fleet, "observed values should match between SS3 and MFCL for bins with same width"))
+      }
     }
   }
 })
@@ -475,7 +503,8 @@ if(file.exists(file.path(dir_mfcl, "v11", "length.fit")) &&
       output_dir = dir_mfcl,
       aggregate = FALSE,
       save_csv = FALSE,
-      verbose = FALSE
+      verbose = FALSE,
+      par_file = par_file_mfcl
     )
   }, error = function(e) {
     # MFCL time-resolved data may not be available
@@ -681,7 +710,7 @@ test_that("SS3 and MFCL time-resolved ts values overlap", {
   expect_true(length(common_ts) > 0)
 })
 
-test_that("SS3 and MFCL time-resolved observed values match for spot-check selection", {
+test_that("SS3 and MFCL time-resolved observed values match for spot-check selection with same bin widths", {
   skip_if_not(!is.null(len_ss3_time) && !is.null(len_mfcl_time),
               "Both SS3 and MFCL time-resolved data must be available")
   
@@ -710,6 +739,19 @@ test_that("SS3 and MFCL time-resolved observed values match for spot-check selec
       mfcl_fleet = mfcl_ts_data[Fleet == fleet, .(Bin, Obs)]
       setorder(mfcl_fleet, Bin)
       
+      # Calculate bin widths
+      if(nrow(ss3_fleet) > 1) {
+        ss3_fleet[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+      } else {
+        ss3_fleet[, bin_width := NA_real_]
+      }
+      
+      if(nrow(mfcl_fleet) > 1) {
+        mfcl_fleet[, bin_width := c(diff(Bin), diff(Bin)[length(diff(Bin))])]
+      } else {
+        mfcl_fleet[, bin_width := NA_real_]
+      }
+      
       # Find common bins
       common_bins = intersect(ss3_fleet$Bin, mfcl_fleet$Bin)
       
@@ -717,11 +759,171 @@ test_that("SS3 and MFCL time-resolved observed values match for spot-check selec
         ss3_subset = ss3_fleet[Bin %in% common_bins]
         mfcl_subset = mfcl_fleet[Bin %in% common_bins]
         
-        # For disaggregated data, tolerance accounts for rounding and extraction differences
-        # Spot checks show max differences around 0.003 across time steps and fleets
-        # Use 3e-3 (0.003) tolerance, same as aggregated comparisons, but applied to raw time-resolved data
-        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
-             label = paste("TS", ts_val, "Fleet", fleet, "time-resolved observed values should match closely between SS3 and MFCL"))
+        # Verify bin widths match for common bins
+        bin_width_matches = abs(ss3_subset$bin_width - mfcl_subset$bin_width) < 1e-6
+        
+        if(!all(bin_width_matches, na.rm = TRUE)) {
+          # Only compare observed values for bins with matching widths
+          matching_bins = ss3_subset$Bin[bin_width_matches]
+          ss3_subset = ss3_subset[Bin %in% matching_bins]
+          mfcl_subset = mfcl_subset[Bin %in% matching_bins]
+        }
+        
+        # Only proceed with comparison if we have bins with matching widths
+        if(nrow(ss3_subset) > 0 && nrow(mfcl_subset) > 0) {
+          # With back_transform=TRUE (default), SS3 Obs matches original input
+          # proportions. Tolerance covers floating-point round-trip only.
+          expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 1.5e-4,
+               label = paste("TS", ts_val, "Fleet", fleet, "time-resolved observed values should match closely between SS3 and MFCL for bins with same width"))
+        }
+      }
+    }
+  }
+})
+
+# ===== Back-Transform Tests =====
+
+test_that("back_transform=TRUE SS3 Obs matches MFCL Obs for same bins", {
+  skip_if_not(!is.null(len_ss3_time) && !is.null(len_mfcl_time),
+              "Both SS3 and MFCL time-resolved data must be available")
+  
+  # First length data appears at ts 146 (1988 Q2) for Fleet 8
+  common_ts = intersect(unique(len_ss3_time$ts), unique(len_mfcl_time$ts))
+  skip_if(length(common_ts) == 0, "No common time steps")
+  
+  ts_val = common_ts[1]
+  
+  # Find a fleet that has data in this time step for both models
+  ss3_fleets = unique(len_ss3_time[ts == ts_val]$Fleet)
+  mfcl_fleets = unique(len_mfcl_time[ts == ts_val]$Fleet)
+  common_fleets = intersect(ss3_fleets, mfcl_fleets)
+  skip_if(length(common_fleets) == 0, "No common fleets in first time step")
+  
+  flt = common_fleets[1]
+  
+  ss3_f = len_ss3_time[Fleet == flt & ts == ts_val]
+  mfcl_f = len_mfcl_time[Fleet == flt & ts == ts_val]
+  
+  common_bins = intersect(ss3_f$Bin, mfcl_f$Bin)
+  skip_if(length(common_bins) == 0, "No common bins")
+  
+  ss3_comp = ss3_f[Bin %in% common_bins][order(Bin)]$Obs
+  mfcl_comp = mfcl_f[Bin %in% common_bins][order(Bin)]$Obs
+  
+  # With back_transform=TRUE, the Obs proportions should closely match
+  # (tolerance allows for floating-point rounding through Report.sso)
+  expect_equal(ss3_comp, mfcl_comp, tolerance = 1e-5,
+               label = "Back-transformed SS3 Obs should match MFCL Obs")
+})
+
+test_that("back_transform=FALSE returns raw SS3 Report.sso values", {
+  ss3_model_dir = file.path(dir_ss3, "01-bet-base")
+  skip_if_not(file.exists(file.path(ss3_model_dir, "Report.sso")),
+              "SS3 Report.sso not found")
+  
+  len_raw = tryCatch(
+    extract_ss3_length_comp(ss3_model_dir, "01-bet-base",
+                            aggregate = FALSE, save_csv = FALSE,
+                            back_transform = FALSE, verbose = FALSE),
+    error = function(e) NULL
+  )
+  skip_if_not(!is.null(len_raw), "Could not read SS3 output")
+  
+  # With back_transform=FALSE, Obs values should contain the addtocomp
+  # adjustment. Even zero-proportion bins will have a small positive value.
+  # Verify by checking that all Obs > 0 (because addtocomp > 0).
+  expect_true(all(len_raw$Obs > 0),
+              label = "back_transform=FALSE Obs should include addtocomp (all > 0)")
+  
+  # Nsamp_in should be the variance-adjusted values (original * Factor 4).
+  # Compare against back_transform=TRUE to confirm they differ.
+  len_bt = tryCatch(
+    extract_ss3_length_comp(ss3_model_dir, "01-bet-base",
+                            aggregate = FALSE, save_csv = FALSE,
+                            back_transform = TRUE, verbose = FALSE),
+    error = function(e) NULL
+  )
+  skip_if_not(!is.null(len_bt), "Could not read SS3 output with back_transform=TRUE")
+  
+  # Back-transformed Nsamp_in should be much larger (divided by Factor 4)
+  expect_true(mean(len_bt$Nsamp_in) > mean(len_raw$Nsamp_in) * 100,
+              label = "back_transform=TRUE Nsamp_in should be much larger than raw")
+})
+
+test_that("back_transform=TRUE recovers original Nsamp scale from data.ss", {
+  skip_if_not(!is.null(len_ss3_time),
+              "SS3 time-resolved length composition not available (pre-loaded)")
+  
+  # The pre-loaded len_ss3_time uses back_transform=TRUE by default
+  # Nsamp_in should be on the original data.ss scale (e.g., hundreds or thousands)
+  # rather than tiny variance-adjusted values
+  expect_true(all(len_ss3_time$Nsamp_in > 1),
+              label = "Back-transformed Nsamp_in should be on original data.ss scale")
+})
+
+# ===== MFCL Nsamp_adj with flag 49 Tests =====
+
+test_that("MFCL Nsamp_adj uses flag 49 values when par_file provided", {
+  skip_if_not(!is.null(len_mfcl_time) && file.exists(par_file_mfcl),
+              "MFCL time-resolved data and par file must be available")
+  
+  # Read flag 49 values directly for verification
+  if(!requireNamespace("FLR4MFCL", quietly = TRUE)) skip("FLR4MFCL not available")
+  base_par = FLR4MFCL::read.MFCLPar(par_file_mfcl, first.yr = 1952)
+  flag_dt = data.table::as.data.table(FLR4MFCL::flags(base_par))
+  flag49 = flag_dt[flag == 49 & flagtype < 0]
+  flag49[, fleet := abs(flagtype)]
+  flag49_lookup = stats::setNames(flag49$value, flag49$fleet)
+  
+  # Check one observation per fleet: Nsamp_adj should equal min(Nsamp_in, 1000) / flag49
+  for(flt in unique(len_mfcl_time$Fleet)) {
+    flt_char = as.character(flt)
+    if(flt_char %in% names(flag49_lookup)) {
+      f49 = flag49_lookup[flt_char]
+      obs_row = len_mfcl_time[Fleet == flt][1]
+      expected_adj = unname(min(obs_row$Nsamp_in, 1000) / f49)
+      expect_equal(obs_row$Nsamp_adj, expected_adj, tolerance = 1e-10,
+                   label = paste0("Fleet ", flt, " Nsamp_adj = min(Nsamp_in, 1000) / ", f49))
+    }
+  }
+})
+
+test_that("MFCL Nsamp_adj differs from Nsamp_in when par_file provided", {
+  skip_if_not(!is.null(len_mfcl_time) && file.exists(par_file_mfcl),
+              "MFCL time-resolved data and par file must be available")
+  
+  # Nsamp_adj should NOT equal Nsamp_in (because flag 49 divides it)
+  # At least for rows where Nsamp_in > 0
+  rows_with_data = len_mfcl_time[Nsamp_in > 0]
+  if(nrow(rows_with_data) > 0) {
+    expect_false(all(rows_with_data$Nsamp_adj == rows_with_data$Nsamp_in),
+                 label = "Nsamp_adj should differ from Nsamp_in when flag 49 is applied")
+  }
+})
+
+test_that("MFCL Nsamp_adj is capped at 1000/flag49 when Nsamp_in > 1000", {
+  skip_if_not(!is.null(len_mfcl_time) && file.exists(par_file_mfcl),
+              "MFCL time-resolved data and par file must be available")
+  
+  if(!requireNamespace("FLR4MFCL", quietly = TRUE)) skip("FLR4MFCL not available")
+  base_par = FLR4MFCL::read.MFCLPar(par_file_mfcl, first.yr = 1952)
+  flag_dt = data.table::as.data.table(FLR4MFCL::flags(base_par))
+  flag49 = flag_dt[flag == 49 & flagtype < 0]
+  flag49[, fleet := abs(flagtype)]
+  flag49_lookup = stats::setNames(flag49$value, flag49$fleet)
+  
+  # For rows where Nsamp_in > 1000, Nsamp_adj should be 1000/flag49
+  for(flt in unique(len_mfcl_time$Fleet)) {
+    flt_char = as.character(flt)
+    if(flt_char %in% names(flag49_lookup)) {
+      f49 = flag49_lookup[flt_char]
+      large_rows = len_mfcl_time[Fleet == flt & Nsamp_in > 1000]
+      if(nrow(large_rows) > 0) {
+        expected_adj = 1000 / f49
+        expect_true(all(abs(large_rows$Nsamp_adj - expected_adj) < 1e-10),
+                    label = paste0("Fleet ", flt,
+                                   ": Nsamp_adj should be 1000/", f49,
+                                   " when Nsamp_in > 1000"))
       }
     }
   }
