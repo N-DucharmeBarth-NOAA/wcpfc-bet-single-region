@@ -14,6 +14,11 @@
 #' @param aggregate Logical. Aggregate across time? Default TRUE. When FALSE,
 #'   returns per-observation data with year, month, and ts columns and saves
 #'   as comp_size_time.csv instead of comp_size.csv.
+#' @param back_transform Logical. Undo SS3 internal mincomp and variance
+#'   adjustment transformations so that Obs/Exp are on the original input
+#'   proportion scale and Nsamp_in/Nsamp_adj reflect the original sample sizes?
+#'   Default TRUE. When TRUE, reads data.ss and control.ss via r4ss to obtain
+#'   mincomp_per_method and Factor 7 (mult_by_generalized_sizecomp) per fleet.
 #' 
 #' @return data.table with columns: id, Fleet, Fleet_name, Used, Kind, Sex, Bin,
 #'   Obs, Exp, Dev, effN, Nsamp_in, Nsamp_adj. When aggregate = FALSE, also
@@ -27,10 +32,17 @@
 #'
 #' @examples
 #' \dontrun{
-#'   # Without bin harmonization
+#'   # Without bin harmonization (back-transforms SS3 adjustments by default)
 #'   wt_comp = extract_ss3_weight_comp(
 #'     model_dir = "model-files/ss3/01-bet-base",
 #'     model_id = "01-bet-base"
+#'   )
+#'   
+#'   # Keep SS3 Report.sso values as-is (no back-transform)
+#'   wt_comp = extract_ss3_weight_comp(
+#'     model_dir = "model-files/ss3/01-bet-base",
+#'     model_id = "01-bet-base",
+#'     back_transform = FALSE
 #'   )
 #'   
 #'   # With bin harmonization to 2kg bins
@@ -56,7 +68,8 @@ extract_ss3_weight_comp = function(model_dir, model_id,
                                    target_bins = NULL,
                                    save_csv = TRUE,
                                    verbose = TRUE,
-                                   aggregate = TRUE) {
+                                   aggregate = TRUE,
+                                   back_transform = TRUE) {
   
   # Check if Report.sso exists
   if(!file.exists(file.path(model_dir, "Report.sso"))) {
@@ -86,6 +99,71 @@ extract_ss3_weight_comp = function(model_dir, model_id,
   }
   
   wt_dt = data.table::as.data.table(tmp_report$sizedbase)
+  
+  # Step 2b: Back-transform SS3 internal mincomp and variance adjustments
+  # SS3 adds mincomp to each bin proportion and renormalizes, and multiplies
+  # Nsamp by Factor 7 (mult_by_generalized_sizecomp). Undoing these makes
+  # Obs/Exp match the original input proportions and Nsamp match the input
+  # sample sizes, consistent with MFCL extractor output.
+  if(back_transform) {
+    if(verbose) message("Back-transforming SS3 mincomp and variance adjustments")
+    
+    # Read data.ss for mincomp and nbins per sizefreq method
+    tmp_starter = r4ss::SS_readstarter(file.path(model_dir, "starter.ss"),
+                                       verbose = FALSE)
+    tmp_dat = r4ss::SS_readdat(file.path(model_dir, tmp_starter$datfile),
+                               verbose = FALSE)
+    
+    # Read control.ss for variance adjustment Factor 7 per fleet
+    tmp_ctl = r4ss::SS_readctl(file.path(model_dir, tmp_starter$ctlfile),
+                               use_datlist = TRUE, datlist = tmp_dat,
+                               verbose = FALSE)
+    
+    # Get Factor 7 (mult_by_generalized_sizecomp) for each fleet
+    var_adj_dt = NULL
+    if(!is.null(tmp_ctl$Variance_adjustment_list)) {
+      var_adj_all = data.table::as.data.table(tmp_ctl$Variance_adjustment_list)
+      var_adj_dt = var_adj_all[factor == 7]  # Factor 7 = mult_by_generalized_sizecomp
+    }
+    
+    # Get mincomp and nbins per method
+    mincomp_vec = tmp_dat$mincomp_per_method   # vector, one per method
+    nbins_vec = tmp_dat$nbins_per_method       # vector, one per method
+    
+    # The 'method' column in sizedbase tells us which sizefreq method each row uses
+    # (assigned from Ageerr column by r4ss)
+    for(m in seq_along(mincomp_vec)) {
+      mc = mincomp_vec[m]
+      nb = nbins_vec[m]
+      idx = which(wt_dt$method == m)
+      if(length(idx) > 0 && mc > 0) {
+        # Undo mincomp: p_raw = p_adj * (1 + nb * mc) - mc
+        scaling = 1 + nb * mc
+        wt_dt$Obs[idx] = wt_dt$Obs[idx] * scaling - mc
+        wt_dt$Exp[idx] = wt_dt$Exp[idx] * scaling - mc
+        # Clamp to zero (floating point)
+        wt_dt$Obs[idx] = pmax(wt_dt$Obs[idx], 0)
+        wt_dt$Exp[idx] = pmax(wt_dt$Exp[idx], 0)
+      }
+    }
+    
+    # Undo variance adjustment on Nsamp
+    if(!is.null(var_adj_dt) && nrow(var_adj_dt) > 0) {
+      for(i in seq_len(nrow(var_adj_dt))) {
+        flt = var_adj_dt$fleet[i]
+        va = var_adj_dt$value[i]
+        if(va > 0) {
+          idx = which(wt_dt$Fleet == flt)
+          if(length(idx) > 0) {
+            wt_dt$Nsamp_in[idx] = wt_dt$Nsamp_in[idx] / va
+            wt_dt$Nsamp_adj[idx] = wt_dt$Nsamp_adj[idx] / va
+          }
+        }
+      }
+    }
+    
+    if(verbose) message("  Back-transform complete")
+  }
   
   # Step 3: Select relevant columns
   required_cols = c("Fleet", "Used", "Kind", "Sex", "Bin", "Obs", "Exp", "effN", "Nsamp_in", "Nsamp_adj")

@@ -125,8 +125,8 @@ test_that("extract_ss3_weight_comp proportions are reasonable", {
   expect_true(all(wt_ss3_base$Obs >= 0))
   expect_true(all(wt_ss3_base$Exp >= 0))
   
-  # Sample sizes should be positive (or NA)
-  expect_true(all(wt_ss3_base$Nsamp_in > 0 | is.na(wt_ss3_base$Nsamp_in)))
+  # Sample sizes should be non-negative (or NA)
+  expect_true(all(wt_ss3_base$Nsamp_in >= 0 | is.na(wt_ss3_base$Nsamp_in)))
 })
 
 test_that("extract_ss3_weight_comp aggregation produces reasonable sums", {
@@ -490,11 +490,10 @@ test_that("MFCL and SS3 observed values match for common fisheries and bins with
       
       # Only proceed with comparison if we have bins with matching widths
       if(nrow(ss3_subset) > 0 && nrow(mfcl_subset) > 0) {
-        # Check that observed values match (within tolerance for floating point)
-        # SS3 may fill tiny non-zero values for bins that are zero in MFCL
-        # Allow larger tolerance to accommodate aggregation differences
-        # Observed average differences up to ~0.0015; use 3e-3 to be conservative
-        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
+        # With back_transform=TRUE (default), SS3 Obs is on the original input
+        # proportion scale, matching MFCL. Tolerance covers floating-point
+        # round-trip through Report.sso and any residual clamping at zero.
+        expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 1.5e-4,
              label = paste("Fleet", fleet, "observed values should match between SS3 and MFCL for bins with same width"))
       } else {
         # Skip comparison if no bins with matching widths
@@ -805,10 +804,9 @@ test_that("SS3 and MFCL time-resolved observed values match for spot-check selec
         
         # Only proceed with comparison if we have bins with matching widths
         if(nrow(ss3_subset) > 0 && nrow(mfcl_subset) > 0) {
-          # For disaggregated data, tolerance accounts for rounding and extraction differences
-          # Spot checks show max differences around 0.003 across time steps and fleets
-          # Use 3e-3 (0.003) tolerance, same as aggregated comparisons, but applied to raw time-resolved data
-          expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 3e-3,
+          # With back_transform=TRUE (default), SS3 Obs matches original input
+          # proportions. Tolerance covers floating-point round-trip only.
+          expect_equal(ss3_subset$Obs, mfcl_subset$Obs, tolerance = 1.5e-4,
                label = paste("TS", ts_val, "Fleet", fleet, "time-resolved observed values should match closely between SS3 and MFCL for bins with same width"))
         }
       }
@@ -883,4 +881,90 @@ test_that("CSV files are created in correct locations when save_csv = TRUE", {
   # Verify CSV can be read back
   csv_data = fread(csv_file)
   expect_equal(nrow(csv_data), nrow(wt_comp))
+})
+
+# ===== Back-Transform Tests =====
+
+test_that("back_transform=TRUE recovers original Nsamp from data.ss", {
+  skip_if_not(!is.null(wt_ss3_time),
+              "SS3 time-resolved weight composition not available (pre-loaded)")
+  
+  # The pre-loaded wt_ss3_time uses back_transform=TRUE by default
+  # For Fleet 1, time step 21 (1957 Q2), the original Nsamp in data.ss is 7748.6844
+  spot = wt_ss3_time[Fleet == 1 & ts == 21]
+  skip_if(nrow(spot) == 0, "No data for Fleet 1, ts 21")
+  
+  # All bins for this observation should share the same Nsamp_in
+  expect_equal(spot$Nsamp_in[1], 7748.6844, tolerance = 0.01,
+               label = "Back-transformed Nsamp_in should match original data.ss value")
+})
+
+test_that("back_transform=TRUE recovers original observed proportions", {
+  skip_if_not(!is.null(wt_ss3_time),
+              "SS3 time-resolved weight composition not available (pre-loaded)")
+  
+  # For Fleet 1, ts 21, Bin 2: the original proportion from MFCL weight.fit
+  # and data.ss is 0.17403612 / 7748.6844 = 2.24601e-05
+  spot = wt_ss3_time[Fleet == 1 & ts == 21 & Bin == 2]
+  skip_if(nrow(spot) == 0, "No data for Fleet 1, ts 21, Bin 2")
+  
+  expect_equal(spot$Obs, 2.24601e-05, tolerance = 1e-7,
+               label = "Back-transformed Obs should match original input proportion")
+  
+  # And Obs * Nsamp_in should recover the nominal count from data.ss / frq file
+  expect_equal(spot$Obs * spot$Nsamp_in, 0.17403612, tolerance = 1e-4,
+               label = "Obs * Nsamp_in should recover nominal count from data.ss")
+})
+
+test_that("back_transform=FALSE returns raw SS3 Report.sso values", {
+  ss3_model_dir = file.path(dir_ss3, "01-bet-base")
+  skip_if_not(file.exists(file.path(ss3_model_dir, "Report.sso")),
+              "SS3 Report.sso not found")
+  
+  wt_raw = tryCatch(
+    extract_ss3_weight_comp(ss3_model_dir, "01-bet-base",
+                            aggregate = FALSE, save_csv = FALSE,
+                            back_transform = FALSE, verbose = FALSE),
+    error = function(e) NULL
+  )
+  skip_if_not(!is.null(wt_raw), "Could not read SS3 output")
+  
+  # For Fleet 1, ts 21, Bin 2: Report.sso reports mincomp-adjusted Obs = 0.000937177
+  spot = wt_raw[Fleet == 1 & ts == 21 & Bin == 2]
+  skip_if(nrow(spot) == 0, "No data for Fleet 1, ts 21, Bin 2")
+  
+  expect_equal(spot$Obs, 0.000937177, tolerance = 1e-5,
+               label = "back_transform=FALSE Obs should match Report.sso value")
+  
+  # Nsamp_in should be the variance-adjusted value ~0.193717
+  expect_equal(spot$Nsamp_in, 0.193717, tolerance = 1e-4,
+               label = "back_transform=FALSE Nsamp_in should be variance-adjusted value")
+})
+
+test_that("back_transform=TRUE SS3 Obs matches MFCL Obs for same bins", {
+  skip_if_not(!is.null(wt_ss3_time) && !is.null(wt_mfcl_time),
+              "Both SS3 and MFCL time-resolved data must be available")
+  
+  # Pick Fleet 1, early time steps with fine (1 kg) bins
+  common_ts = intersect(unique(wt_ss3_time$ts), unique(wt_mfcl_time$ts))
+  skip_if(length(common_ts) == 0, "No common time steps")
+  
+  ts_val = common_ts[1]
+  
+  ss3_f1 = wt_ss3_time[Fleet == 1 & ts == ts_val & Bin <= 43]
+  mfcl_f1 = wt_mfcl_time[Fleet == 1 & ts == ts_val & Bin <= 43]
+  
+  skip_if(nrow(ss3_f1) == 0 || nrow(mfcl_f1) == 0,
+          "No data for Fleet 1 in fine bins")
+  
+  common_bins = intersect(ss3_f1$Bin, mfcl_f1$Bin)
+  skip_if(length(common_bins) == 0, "No common bins")
+  
+  ss3_comp = ss3_f1[Bin %in% common_bins][order(Bin)]$Obs
+  mfcl_comp = mfcl_f1[Bin %in% common_bins][order(Bin)]$Obs
+  
+  # With back_transform=TRUE, the Obs proportions should closely match
+  # (tolerance allows for floating-point rounding through Report.sso)
+  expect_equal(ss3_comp, mfcl_comp, tolerance = 1e-5,
+               label = "Back-transformed SS3 Obs should match MFCL Obs for fine bins")
 })
