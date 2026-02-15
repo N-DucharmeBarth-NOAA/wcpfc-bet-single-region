@@ -35,6 +35,7 @@ code `theme_set(theme_bw())` alters the plot aesthetics.
 library(kableExtra)
 library(tidyverse)
 library(reshape2)
+library(this.path)
 # library(bet)
 devtools::load_all()
 
@@ -202,21 +203,22 @@ for (y in 1:data$n_year) {
   length_mu_ysa[y, 1, ] <- mean_length_at_age
 }
 
-# Note: get_weight_at_age() is currently designed for 6 fisheries (SBT)
-# For now, we'll use a simplified approach with a single L-W relationship
-# This will need to be updated later to handle 15 BET fisheries properly
+# Note: MFCL uses 4 fishery-type-specific L-W relationships, but SS3 uses a single
+# L-W relationship for all fisheries (extracted from base_ini). We follow the SS3 approach
+# here for consistency. The get_weight_at_age() function could be adapted for fishery-specific
+# L-W in the future if needed, with appropriate mapping from 15 BET fleets to L-W types.
 
 # Use MFCL length-weight parameters from ini file
 lw_a <- lw_params(base_ini)[1]
 lw_b <- lw_params(base_ini)[2]
 
-# Calculate weight-at-age for all fisheries (simplified - same L-W for all)
+# Calculate weight-at-age for all fisheries using single L-W relationship
+# Weight is integrated over the length-at-age distribution
 data$weight_fya <- array(dim = c(data$n_fishery, data$n_year, data$n_age))
 for (f in 1:data$n_fishery) {
   for (y in 1:data$n_year) {
     # Integrate L-W over length-at-age distribution
     for (a in 1:data$n_age) {
-      # Simple approach: use mean length
       mu_len <- mean_length_at_age[a]
       sd_len <- sd_length_at_age[a]
       
