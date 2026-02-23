@@ -140,3 +140,46 @@
                    .[,.(year,month,ts,fishery,metric,units,value,se)] %>%
                    .[order(year,month)]
     fwrite(cpue_dt,file.path(dir_base_rtmb,"cpue-data.csv"))
+
+#_____________________________________________________________________________________________________________________________
+# Prepare length frequency composition data for RTMB
+#
+# Workflow:
+# 1. Extract length composition data from MFCL frequency file using lnfrq()
+#    - Returns wide-format data with length bins as columns (10, 12, 14, ... 198 cm)
+#    - Observations are grouped by fishery-year-month
+# 2. Reshape to long format (one row per fishery-year-month-length bin combination)
+# 3. Merge with timestep table to add model timestep indexing consistent with catch/CPUE
+# 4. Save as CSV in long format for RTMB model input
+#
+# Output columns in long format:
+# - year:        Calendar year (1952-2018)
+# - month:       Fishing quarter month (2, 5, 8, 11 = Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec approx.)
+# - ts:          Model timestep number (1-268 for 67 years * 4 quarters)
+# - fishery:     MFCL fleet index (1-15)
+# - bin:         Length bin lower edge (cm)
+# - value:       Observations in this length bin
+# - week:        Temporal indicator within quarter (typically 1 for aggregated data)
+#
+# Notes:
+# - MFCL data uses 2cm length bins (10, 12, 14, ... 198 cm)
+# - Data from lnfrq() represents observed length frequency
+# - Sum of values across bins per fishery-year-month instance gives total input sample size.
+# - Divide bin values by total sample size to get proportions if needed for model input (currently left as counts for RTMB to handle).
+
+#
+# Length composition data table (reshaped to long format):
+    len_comp_wide = as.data.table(lnfrq(base_frq)) %>%
+                    na.omit(.)
+    
+    len_comp_dt = melt(len_comp_wide,
+                       id.vars = c("year", "month", "week", "fishery"),
+                       variable.name = "bin",
+                       value.name = "value") %>%
+                  as.data.table(.) %>%
+                  .[,bin := as.numeric(as.character(bin))] %>%
+                  merge(., ts_dt, by = c("year", "month")) %>%
+                  .[, .(year, month, ts, fishery, bin, value, week)] %>%
+                  .[order(fishery, year, month, bin)]
+    
+    fwrite(len_comp_dt, file.path(dir_base_rtmb, "comp_len_time.csv"))
