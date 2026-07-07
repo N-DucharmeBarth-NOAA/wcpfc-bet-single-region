@@ -72,3 +72,24 @@
 	
 	print(p_depl)
 
+wcpo_bet_xmodel_biomass = all_biomass
+saveRDS(wcpo_bet_xmodel_biomass, file = file.path(proj_dir, "wcpo_bet_xmodel_biomass.rds"))
+
+#_____________________________________________________________________________________________________________________________
+# plot depletion comparison
+cpue_mfcl_dt = extract_mfcl_cpue(
+     frq_file = "model-files/mfcl/v11/bet.frq",
+     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
+     model_id = "mfcl-v11",
+     save_csv = FALSE
+   )
+
+   cpue_ss3_dt = extract_ss3_cpue(
+     model_dir = "model-files/ss3/02-fix-sel",
+     model_id = "02-fix-sel",
+     save_csv = FALSE
+   )
+
+wcpo_bet_xmodel_cpue = rbind(cpue_mfcl_dt, cpue_ss3_dt)
+saveRDS(wcpo_bet_xmodel_cpue, file = file.path(proj_dir, "wcpo_bet_xmodel_cpue.rds"))
+

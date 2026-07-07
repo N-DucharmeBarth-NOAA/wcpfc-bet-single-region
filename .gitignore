@@ -23,6 +23,7 @@
 !doitall.condor
 # r files
 !*.r
+!*.rds
 !*.R
 !.Rprofile
 # git files
