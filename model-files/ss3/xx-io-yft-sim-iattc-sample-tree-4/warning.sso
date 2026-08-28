@@ -1,0 +1,7 @@
+SS-V3.24AB-safe;_12/20/2016;_Stock_Synthesis_by_Richard_Methot_(NOAA)_using_ADMB_11.2x64
+Wed Jul 15 07:54:25 2026
+
+Combgender_a cannot be greater than n_abins; resetting
+ N warnings: 1
+Reminder: Number of lamdas !=0.0 and !=1.0:  1
+Number_of_active_parameters_on_or_near_bounds: 0

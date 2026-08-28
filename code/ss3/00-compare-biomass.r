@@ -93,3 +93,11 @@ cpue_mfcl_dt = extract_mfcl_cpue(
 wcpo_bet_xmodel_cpue = rbind(cpue_mfcl_dt, cpue_ss3_dt)
 saveRDS(wcpo_bet_xmodel_cpue, file = file.path(proj_dir, "wcpo_bet_xmodel_cpue.rds"))
 
+   wcpo_bet_xmodel_selex = extract_mfcl_selectivity(
+     rep_file = "model-files/mfcl/v11/plot-10.par.rep",
+     par_file = "model-files/mfcl/v11/10.par",
+     model_id = "v11",
+     write_csv = FALSE
+   )
+
+saveRDS(wcpo_bet_xmodel_selex, file = file.path(proj_dir, "wcpo_bet_xmodel_selex.rds"))
